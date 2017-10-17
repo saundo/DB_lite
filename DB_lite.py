@@ -172,6 +172,8 @@ class excel_exporter():
             KPI_col = 5 + col
         elif self.KPI == 'VID':
             KPI_col = 7 + col
+        else:
+            KPI_col = 7 + col
         # need to do both DFP and 3P
         # this wont work if no placement...
         for i in range(len(df)):
