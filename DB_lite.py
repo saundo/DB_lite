@@ -533,7 +533,7 @@ class dashboard_control():
                 ['DFP CTR %', '3P CTR %', 'DFP view %'],
             'raw values':
                 ['DFP clicks', '3P clicks', 'DFP Viewable imps',
-                 'result_5', 'result_75', 'int_session', 'result'],
+                 'result_5', 'result_75', 'int sessions', 'result'],
             'metrics DFP':
                 ['DFP CTR %', 'DFP VSR %', 'DFP IR %', 'DFP view %'],
             'metrics 3P':
@@ -548,7 +548,7 @@ class dashboard_control():
                 ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %', 'VCR 75 %', 'DFP view %'],
             'raw values':
                 ['DFP clicks', '3P clicks', 'DFP Viewable imps',
-                 'result_5', 'result_75', 'int_session', 'result'],
+                 'result_5', 'result_75', 'int sessions', 'result'],
             'metrics DFP':
                 ['DFP CTR %', 'DFP VSR %', 'VCR 75 %', 'DFP view %'],
             'metrics 3P':
@@ -563,7 +563,7 @@ class dashboard_control():
                 ['DFP CTR %', '3P CTR %', 'DFP IR %', '3P IR %', 'DFP view %'],
             'raw values':
                 ['DFP clicks', '3P clicks', 'DFP Viewable imps',
-                 'result_5', 'result_75', 'int_session', 'result'],
+                 'result_5', 'result_75', 'int sessions', 'result'],
             'metrics DFP':
                 ['DFP CTR %', 'DFP IR %', 'DFP view %'],
             'metrics 3P':
