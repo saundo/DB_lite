@@ -371,7 +371,7 @@ class dataframe_reducer():
             'Ad server Active View viewable impressions',
             'placement',
             'result_5', 'result_75', 'int sessions', 'interactions',
-            'KPI', 'adunit', 'site']
+            'creative.type', 'adunit', 'site']
 
         in_range = self.summarized[(self.summarized['Max date'] > min_date) &
                                    (self.summarized['total DFP imp'] > min_impressions)].copy()
@@ -479,7 +479,8 @@ class dashboard_control():
                 "Normalized 3P Impressions":"3P imps",
                 "Normalized 3P Clicks": "3P clicks",
                 "Ad server Active View viewable impressions":"DFP Viewable imps",
-                "Ad server downloaded impressions":"DFP downloaded imps"
+                "Ad server downloaded impressions":"DFP downloaded imps",
+                "creative.type":"creative.type"
             }
 
             df = df.rename(index=str, columns=column_renaming)
@@ -528,9 +529,9 @@ class dashboard_control():
             dfx = dfx.sort_values(base_cols[0], ascending=False)
             display(dfx.applymap(number_formatting))
 
-        display_options_CTR = {
+        display_options = {
             'producer':
-                ['DFP CTR %', '3P CTR %', 'DFP view %'],
+                ['DFP CTR %', '3P CTR %', 'DFP VSR %', 'DFP IR %', 'DFP view %'],
             'raw values':
                 ['DFP clicks', '3P clicks', 'DFP Viewable imps',
                  'result_5', 'result_75', 'int sessions', 'result'],
@@ -538,36 +539,6 @@ class dashboard_control():
                 ['DFP CTR %', 'DFP VSR %', 'DFP IR %', 'DFP view %'],
             'metrics 3P':
                 ['3P CTR %', '3P VSR %', '3P IR %'],
-            'metrics all':
-                ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %', 'VCR 75 %',
-                 'DFP IR %', '3P IR %','DFP view %']
-        }
-
-        display_options_VID = {
-            'producer':
-                ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %', 'VCR 75 %', 'DFP view %'],
-            'raw values':
-                ['DFP clicks', '3P clicks', 'DFP Viewable imps',
-                 'result_5', 'result_75', 'int sessions', 'result'],
-            'metrics DFP':
-                ['DFP CTR %', 'DFP VSR %', 'VCR 75 %', 'DFP view %'],
-            'metrics 3P':
-                ['3P CTR %', '3P VSR %', 'VCR 75 %'],
-            'metrics all':
-                ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %', 'VCR 75 %',
-                 'DFP IR %', '3P IR %','DFP view %']
-        }
-
-        display_options_IR = {
-            "producer":
-                ['DFP CTR %', '3P CTR %', 'DFP IR %', '3P IR %', 'DFP view %'],
-            'raw values':
-                ['DFP clicks', '3P clicks', 'DFP Viewable imps',
-                 'result_5', 'result_75', 'int sessions', 'result'],
-            'metrics DFP':
-                ['DFP CTR %', 'DFP IR %', 'DFP view %'],
-            'metrics 3P':
-                ['3P CTR %', '3P IR %'],
             'metrics all':
                 ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %', 'VCR 75 %',
                  'DFP IR %', '3P IR %','DFP view %']
@@ -601,24 +572,25 @@ class dashboard_control():
                                 "Inline creatives": ['inline']}
 
         if creative == "No creatives":
-            groupings = ['site', 'KPI', PL_selection]
+            groupings = ['site', 'creative.type', PL_selection]
 
         else:
             sb1 = dfx['adunit'].apply(lambda x: x in creative_dict_lookup[creative])
             dfx = dfx[sb1]
-            groupings = ['site', 'KPI', PL_selection, 'Creative']
+            groupings = ['site', 'creative.type', PL_selection, 'Creative']
 
         dfx = dfx.groupby(groupings, as_index=False).sum()
         dfx = metric_calculations(dfx)
 
-        CTR = dfx[dfx['KPI'] == 'CTR']
-        VID = dfx[dfx['KPI'] == 'VID']
-        IR = dfx[dfx['KPI'] == 'IR']
 
+        creative_types = ('no match',
+                          'traffic driver',
+                          'interactive non video',
+                          'branded driver',
+                          'video',
+                          'interactive video')
 
-        if len(CTR) > 1:
-            final_formatting(CTR, display_options_CTR)
-        if len(VID) > 1:
-            final_formatting(VID, display_options_VID)
-        if len(IR) > 1:
-            final_formatting(IR, display_options_IR)
+        for creative_type in creative_types:
+            dfxx = dfx[dfx['creative.type'] == creative_type]
+            if len(dfxx) > 1:
+                final_formatting(dfxx, display_options)
