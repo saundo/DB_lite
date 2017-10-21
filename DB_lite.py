@@ -445,8 +445,8 @@ class dashboard_control():
             """
             sb1 = self.df['Advertiser'] == self.advert_dropdown.value
             sb2 = self.df['Order'] == self.order_dropdown.value
-            self.d1_DatePicker.value = self.df[(sb1) & (sb2)]['Date'].min()
-            self.d2_DatePicker.value = self.df[(sb1) & (sb2)]['Date'].max()
+            self.d1_DatePicker.value = (self.df[(sb1) & (sb2)]['Date'].min()).date()
+            self.d2_DatePicker.value = (self.df[(sb1) & (sb2)]['Date'].max()).date()
 
             # def update_selection(self, change):
             #     x1 = self.df['Advertiser'] == self.advert_dropdown.value
@@ -564,6 +564,12 @@ class dashboard_control():
         if len(dfx) < 1:
             print('no data')
             return
+
+        if d1_date < dfx['Date'].min().date():
+            print('\033[1m'+'WARNING - data does not exist before: '+'\033[0m',
+                str(dfx['Date'].min().date()))
+
+
 
         #define groupbys
         creative_dict_lookup = {"All creatives": ['engage', 'marquee', 'inline'],
