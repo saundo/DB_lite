@@ -578,18 +578,9 @@ class assemble():
 
     def apply_descriptors(self):
         """
-        NEED TO HAVE CONVO ON THIS, especially around KPI allocation
-        + KPIs
-        + adunit
+        Keep it at creative.type
         THIS ALSO WILL NEED SOME TLC after Quartz at Work
         """
-        def KPIs(x):
-            if x == 'interactive non video':
-                return 'IR'
-            elif x == 'interactive video' or x == 'video':
-                return 'VID'
-            else:
-                return 'CTR'
 
         def adunit(x):
             if 'engage' in x:
@@ -601,5 +592,6 @@ class assemble():
             else:
                 return 'oth'
 
-        self.df_master['KPI'] = self.df_master['creative.type'].apply(KPIs)
         self.df_master['adunit'] = self.df_master['placement'].apply(adunit)
+        #fill creative.type with values other than NaN
+        self.df_master['creative.type'] = self.df_master.fillna('no match')
