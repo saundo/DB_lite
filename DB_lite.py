@@ -600,3 +600,116 @@ class dashboard_control():
             dfxx = dfx[dfx['creative.type'] == creative_type]
             if len(dfxx) > 1:
                 final_formatting(dfxx, display_options)
+
+################################## Metric explorer #############################
+class metric_explorer():
+    """
+    class for exploring metrics within the Dashboard_lite
+    """
+    def __init__(self, df):
+        """
+        + initialize class with dataframe
+        + initiatlive all ipywidgets
+        """
+        self.df = df
+        self.split_param = ' - * - '
+
+        self.df['advert_order'] = self.df['Advertiser'] + self.split_param + self.df['Order']
+
+        self.creative_types = ('no match', 'traffic driver',
+            'interactive non video', 'branded driver', 'video',
+            'interactive video'
+        )
+
+        self.AO_multiple = ipywidgets.SelectMultiple(
+            options=sorted(set(self.df['advert_order'])),
+            value=[],
+            rows=3,
+            description='Advert-order',
+            disabled=False,
+            layout=ipywidgets.Layout(width='50%', height='280px')
+        )
+
+        self.site_dropdown = ipywidgets.Dropdown(
+            options = ['qz', 'wrk', 'zty'],
+            value='qz',
+            disabled=False
+        )
+
+        self.placement_dropdown = ipywidgets.Dropdown(
+            options = ['engage mobile', 'engage desktop',
+                       'marquee mobile', 'marquee desktop',
+                       'inline mobile', 'inline desktop'],
+            value='engage mobile',
+            disabled=False
+        )
+
+        self.creative_type_dropdown = ipywidgets.Dropdown(
+            options=self.creative_types,
+            value=self.creative_types[0],
+            disabled=False
+        )
+
+        self.metric_measurement = ipywidgets.Dropdown(
+            options=['DFP CTR', '3P CTR', 'Viewability', 'VSR', 'IR'],
+            value='DFP CTR',
+            disabled=False
+        )
+
+        self.d1_DatePicker = ipywidgets.DatePicker(disabled=False)
+        self.d2_DatePicker = ipywidgets.DatePicker(disabled=False)
+
+        self.aggregate_checkbox = ipywidgets.Checkbox(
+            value=False,
+            description='Display aggregate',
+            disabled=False
+        )
+
+        self.button = ipywidgets.Button(description="CHART IT !",
+            layout=ipywidgets.Layout(width='100%', height='55px')
+        )
+
+        self.left_box = ipywidgets.VBox(
+            [self.site_dropdown, self.placement_dropdown,
+             self.creative_type_dropdown, self.metric_measurement,
+             self.d1_DatePicker, self.d2_DatePicker,
+             self.aggregate_checkbox, self.button]
+        )
+
+        self.display = ipywidgets.HBox([left_box, advert_order_multiple])
+
+    def update_AO_multiple(self, change):
+        """
+        update advert_order multiple select widget
+        """
+        sb1 = self.df['site'] == self.site_dropdown.value
+        sb2 = self.df['placement'] == self.placement_dropdown.value
+        sb3 = self.df['creative.type'] == self.creative_type_dropdown.value
+        #sb4 = self.df['site'] == self.site_dropdown.value
+
+        x1 = self.df[(sb1) & (sb2) & (sb3)]
+        self.AO_multiple.options = list(set(x1['advert_order']))
+
+
+    def display_dashboard(self):
+        """
+        display the metric explorer dashboard
+
+        """
+
+        self.site_dropdown.observe(self.update_AO_multiple, names='value')
+        self.placement_dropdown.observe(self.update_AO_multiple, names='value')
+        self.creative_type_dropdown.observe(self.update_AO_multiple, names='value')
+        #self.metric_measurement.observe(update_AO_multiple, names='value')
+
+        self.button.observe()
+
+    def graph_metrics(self):
+        pass
+
+
+
+
+
+
+
