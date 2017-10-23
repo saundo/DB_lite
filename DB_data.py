@@ -171,10 +171,14 @@ def unpack_keen(data):
     df['date'] = df['date'].dt.strftime('%Y-%m-%d')
 
     df = df.rename(index=str, columns=p_dict)
-    df['Creative ID'] = df['Creative ID'].astype(int)
-    df['Line item ID'] = df['Line item ID'].astype(int)
+
+    # check for weird results  --> verify with Apostolis
+    dfx = df[df['Creative ID'] != str('%ecid!')].copy()
+    dfx['Creative ID'] = dfx['Creative ID'].astype(int)
+    dfx['Line item ID'] = dfx['Line item ID'].astype(int)
     print('unpacked')
-    return df
+    print((len(df) - len(dfx)), ' rows with anomalies')
+    return dfx
 
 ################################## STAQ ########################################
 class STAQ_prep():
