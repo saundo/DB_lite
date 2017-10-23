@@ -447,11 +447,14 @@ class INT_calc():
         ### this on IR returns sessions
         def wrangling(df, session_key='cookie_s'):
             KeyID_session = list(self.KeyID) + [session_key]
-            cols = KeyID_session + ['result']
             param = 'video.progress.percent_viewed'
+            v5 = df[df[param] == 5]
+            v75 = df[df[param] == 75]
+            cols = KeyID_session + ['result']
 
-            v5_session = df[df[param] == 5][cols]
-            return v5_session
+            v5_75_session = pd.merge(v5[cols], v75[cols],
+                on=KeyID_session, how='outer')
+            return v5_75_session
 
         self.VID_qz_session = wrangling(self.VID_qz)
         self.VID_wrk_session= wrangling(self.VID_wrk,
