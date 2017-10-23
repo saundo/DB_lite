@@ -233,7 +233,8 @@ class STAQ_prep():
             'email-logo':'oth',
             'email-content':'oth',
             'flash-brief': 'oth',
-            'iphone_test':'oth'
+            'iphone_test':'oth',
+            'newsstand':'Google News ads'
         }
         try:
             self.STAQ['site'] = self.STAQ['Ad unit'].apply(lambda x: site_lookup[x])
@@ -594,4 +595,4 @@ class assemble():
 
         self.df_master['adunit'] = self.df_master['placement'].apply(adunit)
         #fill creative.type with values other than NaN
-        self.df_master['creative.type'] = self.df_master.fillna('no match')
+        self.df_master['creative.type'] = self.df_master['creative.type'].fillna('no match')
