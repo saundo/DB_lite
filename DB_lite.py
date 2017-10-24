@@ -229,51 +229,6 @@ class excel_exporter():
         for order in formatting_order:
             paint_it(order[0], order[1], order[2])
 
-
-
-
-        # for i in range(len(df)):
-        #     placement = df.iloc[i]['placement']
-        #     #DFP CTR conditional formatting
-        #     self.worksheet.conditional_format(row+1+i, CTR_DFP, row+1+i, CTR_DFP,
-        #         {'type': 'cell',
-        #         'criteria': 'less than',
-        #         'value': self.return_benchmark('CTR', placement, 'DFP') * 0.75,
-        #         'format': self.f_red_dark})
-
-        #     self.worksheet.conditional_format(row+1+i, CTR_DFP, row+1+i, CTR_DFP,
-        #         {'type': 'cell',
-        #         'criteria': 'between',
-        #         'minimum': self.return_benchmark('CTR', placement, 'DFP') * 0.75,
-        #         'maximum': self.return_benchmark('CTR', placement, 'DFP'),
-        #         'format': self.f_red_light})
-
-        #     self.worksheet.conditional_format(row+1+i, CTR_DFP, row+1+i, CTR_DFP,
-        #         {'type': 'cell',
-        #         'criteria': 'between',
-        #         'minimum': self.return_benchmark('CTR', placement, 'DFP'),
-        #         'maximum': self.return_benchmark('CTR', placement, 'DFP') * 1.25,
-        #         'format': self.f_green_light})
-
-        #     self.worksheet.conditional_format(row+1+i, CTR_DFP, row+1+i, CTR_DFP,
-        #         {'type': 'cell',
-        #         'criteria': 'greater than',
-        #         'value': self.return_benchmark('CTR', placement, 'DFP') * 1.25,
-        #         'format': self.f_green_dark})
-
-
-        #     #3P conditional formatting
-        #     self.worksheet.conditional_format(row+1+i, CTR_3P, row+1+i, CTR_3P,
-        #         {'type': 'cell',
-        #         'criteria': 'less than',
-        #         'value': self.return_benchmark('CTR', placement, '3P'),
-        #         'format': self.f_red_dark})
-        #     self.worksheet.conditional_format(row+1+i, CTR_3P, row+1+i, CTR_3P,
-        #         {'type': 'cell',
-        #         'criteria': 'greater than',
-        #         'value': self.return_benchmark('CTR', placement, '3P'),
-        #         'format': self.f_green_dark})
-
     def execute_export(self, directory='/users/csaunders/Desktop/excel_export_test/'):
         """
         export -
