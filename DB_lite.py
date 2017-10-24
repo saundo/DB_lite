@@ -342,7 +342,8 @@ class excel_exporter():
                 self.write_excel(self.ctd_prod, row, colc)
                 # self.conditional_format(self.ctd_prod, row, colc)
 
-            row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
+            if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
+                row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
 
 
         ################ Line item tab ########################################
@@ -374,8 +375,8 @@ class excel_exporter():
                 self.write_excel(self.ctd_prod, row, colc)
                 # self.conditional_format(self.ctd_prod, row, colc)
 
-            row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
-
+            if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
+                row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
 
         ################# data tab and save #####################################
         self.df.sort_values('Date', ascending=False).to_excel(
