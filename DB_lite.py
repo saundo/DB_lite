@@ -585,7 +585,7 @@ class dashboard_control():
                 ['DFP CTR %', '3P CTR %', 'DFP VSR %', 'DFP IR %', 'DFP view %'],
             'raw values':
                 ['DFP clicks', '3P clicks', 'DFP Viewable imps',
-                 'result_5', 'result_75', 'int sessions', 'result'],
+                 'result_5', 'result_75', 'int sessions', 'interactions'],
             'metrics DFP':
                 ['DFP CTR %', 'DFP VSR %', 'DFP IR %', 'DFP view %'],
             'metrics 3P':
@@ -639,13 +639,12 @@ class dashboard_control():
         dfx = dfx.groupby(groupings, as_index=False).sum()
         dfx = metric_calculations(dfx)
 
-
-        creative_types = ('no match',
-                          'traffic driver',
+        creative_types = ('traffic driver',
                           'interactive non video',
                           'branded driver',
                           'video',
-                          'interactive video')
+                          'interactive video',
+                          'no match')
 
         for creative_type in creative_types:
             dfxx = dfx[dfx['creative.type'] == creative_type]
@@ -727,7 +726,7 @@ class metric_explorer():
              self.aggregate_checkbox, self.button]
         )
 
-        self.display = ipywidgets.HBox([left_box, advert_order_multiple])
+        self.display = ipywidgets.HBox([self.left_box, self.AO_multiple])
 
     def update_AO_multiple(self, change):
         """
@@ -742,6 +741,10 @@ class metric_explorer():
         self.AO_multiple.options = list(set(x1['advert_order']))
 
 
+    def print_button(self, change):
+        print('you pressed the button!')
+
+
     def display_dashboard(self):
         """
         display the metric explorer dashboard
@@ -753,7 +756,9 @@ class metric_explorer():
         self.creative_type_dropdown.observe(self.update_AO_multiple, names='value')
         #self.metric_measurement.observe(update_AO_multiple, names='value')
 
-        self.button.observe()
+        self.button.on_click(self.print_button)
+
+        return self.display
 
     def graph_metrics(self):
         pass
