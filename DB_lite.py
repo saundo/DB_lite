@@ -53,6 +53,15 @@ class excel_exporter():
         self.d2 = d2
         self.d2_7 = d2_7
 
+        self.creative_types = (
+            'traffic driver',
+            'interactive non video',
+            'branded driver',
+            'video',
+            'interactive video',
+            'no match'
+        )
+
     def return_benchmark(self, KPI, placement, source):
         """
         returns benchmarks based upon args
@@ -94,7 +103,7 @@ class excel_exporter():
 
         df = df.rename(index=str, columns=column_renaming)
 
-        for key in self.instructions[self.tab][self.KPI]:
+        for key in self.instructions[self.tab]['display']:
             if "BM" in key:
                 continue
             elif 'IR' in key:
@@ -111,24 +120,29 @@ class excel_exporter():
         """
         BM_dict = {
             'CTR' : ('DFP CTR BM', '3P CTR BM'),
-            'VID' : ('DFP VSR BM', '3P VSR BM'),
-            'IR'  : ('DFP IR BM', '3P IR BM')
+            'VID' : ('DFP VSR BM'),
+            'IR'  : ('DFP IR BM')
         }
 
-        BMlist_DFP, BMlist_3P = [], []
+        BM_CTR_DFP, BM_CTR_3P = [], []
+        BM_VSR_DFP, BM_IR_DFP = [], []
         for i in range(len(df)):
             placement = df.iloc[i]['placement']
-            BMlist_DFP.append(self.return_benchmark(self.KPI, placement, 'DFP'))
-            BMlist_3P.append(self.return_benchmark(self.KPI, placement, '3P'))
-        df[BM_dict[self.KPI][0]] = BMlist_DFP
-        df[BM_dict[self.KPI][1]] = BMlist_3P
+            BM_CTR_DFP.append(self.return_benchmark('CTR', placement, 'DFP'))
+            BM_CTR_3P.append(self.return_benchmark('CTR', placement, '3P'))
+            BM_VSR_DFP.append(self.return_benchmark('VID', placement, 'DFP'))
+            BM_IR_DFP.append(self.return_benchmark('IR', placement, 'DFP'))
+        df[BM_dict['CTR'][0]] = BM_CTR_DFP
+        df[BM_dict['CTR'][1]] = BM_CTR_3P
+        df['DFP VSR BM'] = BM_VSR_DFP
+        df['DFP IR BM'] = BM_IR_DFP
         return df
 
     def trim_columns(self, df):
         """
         """
         col1 = self.instructions[self.tab]['groupby']
-        col2 = self.instructions[self.tab][self.KPI]
+        col2 = self.instructions[self.tab]['display']
         df = df[list(col1) + ["DFP server imps", "3P imps"] + list(col2)]
         df = df.sort_values('DFP server imps', ascending=False)
         return df
@@ -143,10 +157,10 @@ class excel_exporter():
         self.worksheet.write(0,1, 'Week to date')
         self.worksheet.write(1,1, str(self.d2_7) + ' -> ' + str(self.d2))
 
-        self.worksheet.write(0,14, 'Cumulative to date')
-        self.worksheet.write(1,14, self.ctd_min_date + ' -> ' + str(self.d2))
+        self.worksheet.write(0,15, 'Cumulative to date')
+        self.worksheet.write(1,15, self.ctd_min_date + ' -> ' + str(self.d2))
 
-        self.worksheet.set_column(13, 13, 1, self.divider)
+        self.worksheet.set_column(14, 14, 1, self.divider)
 
     def write_excel(self, df, row, col):
         """
@@ -168,40 +182,97 @@ class excel_exporter():
     def conditional_format(self, df, row, col):
         """
         """
-        if self.KPI == 'CTR':
-            KPI_col = 5 + col
-        elif self.KPI == 'VID':
-            KPI_col = 7 + col
-        else:
-            KPI_col = 7 + col
-        # need to do both DFP and 3P
-        # this wont work if no placement...
-        for i in range(len(df)):
-            placement = df.iloc[i]['placement']
+        def paint_it(col, KPI, source):
+            """
+            applies the format by looping over placement
+            """
+            for i in range(len(df)):
+                placement = df.iloc[i]['placement']
+                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
+                    {'type': 'cell',
+                    'criteria': 'less than',
+                    'value': self.return_benchmark(KPI, placement, source) * 0.75,
+                    'format': self.f_red_dark})
 
-            #DFP conditional formatting
-            self.worksheet.conditional_format(row+1+i, KPI_col, row+1+i, KPI_col,
-                {'type': 'cell',
-                'criteria': 'less than',
-                'value': self.return_benchmark(self.KPI, placement, 'DFP'),
-                'format': self.f_red})
-            self.worksheet.conditional_format(row+1+i, KPI_col, row+1+i, KPI_col,
-                {'type': 'cell',
-                'criteria': 'greater than',
-                'value': self.return_benchmark(self.KPI, placement, 'DFP'),
-                'format': self.f_green})
+                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
+                    {'type': 'cell',
+                    'criteria': 'between',
+                    'minimum': self.return_benchmark(KPI, placement, source) * 0.75,
+                    'maximum': self.return_benchmark(KPI, placement, source),
+                    'format': self.f_red_light})
 
-            #3P conditional formatting
-            self.worksheet.conditional_format(row+1+i, KPI_col+1, row+1+i, KPI_col+1,
-                {'type': 'cell',
-                'criteria': 'less than',
-                'value': self.return_benchmark(self.KPI, placement, '3P'),
-                'format': self.f_red})
-            self.worksheet.conditional_format(row+1+i, KPI_col+1, row+1+i, KPI_col+1,
-                {'type': 'cell',
-                'criteria': 'greater than',
-                'value': self.return_benchmark(self.KPI, placement, '3P'),
-                'format': self.f_green})
+                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
+                    {'type': 'cell',
+                    'criteria': 'between',
+                    'minimum': self.return_benchmark(KPI, placement, source),
+                    'maximum': self.return_benchmark(KPI, placement, source) * 1.25,
+                    'format': self.f_green_light})
+
+                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
+                    {'type': 'cell',
+                    'criteria': 'greater than',
+                    'value': self.return_benchmark(KPI, placement, source) * 1.25,
+                    'format': self.f_green_dark})
+
+        CTR_DFP = 5 + col
+        CTR_3P = 6 + col
+        VSR_DFP = 7 + col
+        IR_DFP = 8 + col
+
+        formatting_order = [
+            (CTR_DFP, 'CTR', 'DFP'),
+            (CTR_3P, 'CTR', '3P'),
+            (VSR_DFP, 'VID', 'DFP'),
+            (IR_DFP, 'IR', 'DFP')
+        ]
+
+        for order in formatting_order:
+            paint_it(order[0], order[1], order[2])
+
+
+
+
+        # for i in range(len(df)):
+        #     placement = df.iloc[i]['placement']
+        #     #DFP CTR conditional formatting
+        #     self.worksheet.conditional_format(row+1+i, CTR_DFP, row+1+i, CTR_DFP,
+        #         {'type': 'cell',
+        #         'criteria': 'less than',
+        #         'value': self.return_benchmark('CTR', placement, 'DFP') * 0.75,
+        #         'format': self.f_red_dark})
+
+        #     self.worksheet.conditional_format(row+1+i, CTR_DFP, row+1+i, CTR_DFP,
+        #         {'type': 'cell',
+        #         'criteria': 'between',
+        #         'minimum': self.return_benchmark('CTR', placement, 'DFP') * 0.75,
+        #         'maximum': self.return_benchmark('CTR', placement, 'DFP'),
+        #         'format': self.f_red_light})
+
+        #     self.worksheet.conditional_format(row+1+i, CTR_DFP, row+1+i, CTR_DFP,
+        #         {'type': 'cell',
+        #         'criteria': 'between',
+        #         'minimum': self.return_benchmark('CTR', placement, 'DFP'),
+        #         'maximum': self.return_benchmark('CTR', placement, 'DFP') * 1.25,
+        #         'format': self.f_green_light})
+
+        #     self.worksheet.conditional_format(row+1+i, CTR_DFP, row+1+i, CTR_DFP,
+        #         {'type': 'cell',
+        #         'criteria': 'greater than',
+        #         'value': self.return_benchmark('CTR', placement, 'DFP') * 1.25,
+        #         'format': self.f_green_dark})
+
+
+        #     #3P conditional formatting
+        #     self.worksheet.conditional_format(row+1+i, CTR_3P, row+1+i, CTR_3P,
+        #         {'type': 'cell',
+        #         'criteria': 'less than',
+        #         'value': self.return_benchmark('CTR', placement, '3P'),
+        #         'format': self.f_red_dark})
+        #     self.worksheet.conditional_format(row+1+i, CTR_3P, row+1+i, CTR_3P,
+        #         {'type': 'cell',
+        #         'criteria': 'greater than',
+        #         'value': self.return_benchmark('CTR', placement, '3P'),
+        #         'format': self.f_green_dark})
 
     def execute_export(self, directory='/users/csaunders/Desktop/excel_export_test/'):
         """
@@ -214,22 +285,19 @@ class excel_exporter():
         """
         self.instructions = {
             'producer': {
-                'groupby': ['site', 'KPI', 'placement'],
-                'CTR'    : ['DFP CTR %', '3P CTR %', 'DFP view %',
-                            'DFP CTR BM', '3P CTR BM'],
-                'VID'    : ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
-                            'VCR 75 %', 'DFP view %', 'DFP VSR BM', '3P VSR BM'],
-                'IR'     : ['DFP CTR %', '3P CTR %', 'DFP IR %', '3P IR %',
-                            'DFP view %', 'DFP IR BM', '3P IR BM']
+                'groupby': ['site', 'creative.type', 'placement'],
+                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', 'DFP IR %',
+                            'DFP view %', 'DFP CTR BM', '3P CTR BM',
+                            'DFP VSR BM', 'DFP IR BM']
             },
             'creative': {
-                'groupby': ['site', 'placement', 'Creative'],
-                'CTR'    : ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
+                'groupby': ['site', 'placement', 'Creative', 'creative.type'],
+                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
                             'VCR 75 %', 'DFP IR %', '3P IR %', 'DFP view %']
             },
             'line item': {
-                'groupby': ['site', 'Line item', 'Creative'],
-                'CTR'    : ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
+                'groupby': ['site', 'Line item', 'Creative', 'creative.type'],
+                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
                             'VCR 75 %', 'DFP IR %', '3P IR %', 'DFP view %']
             },
         }
@@ -240,10 +308,17 @@ class excel_exporter():
         file_name = advert + ' ' + order + '.xlsx'
         self.writer = pd.ExcelWriter(directory + file_name, engine='xlsxwriter')
 
-        self.f_red = self.writer.book.add_format({'bg_color': '#f79494',
+        self.f_red_dark = self.writer.book.add_format({'bg_color': '#f79494',
             'font_color': '#9C0006'})
-        self.f_green = self.writer.book.add_format({'bg_color': '#4bd164',
+        self.f_red_light= self.writer.book.add_format({'bg_color': '#FFC7CE',
+            'font_color': '#9C0006'})
+
+        self.f_green_light = self.writer.book.add_format({'bg_color': '#C6EFCE',
             'font_color': '#019117'})
+        self.f_green_dark = self.writer.book.add_format({'bg_color': '#4bd164',
+            'font_color': '#019117'})
+
+
         self.divider = self.writer.book.add_format({'bg_color': '#000000'})
 
         # create week to date (wtd) and cumulative to date (ctd)
@@ -256,13 +331,13 @@ class excel_exporter():
         self.create_sheet()
         row = 3
         colw = 0
-        colc = 14
+        colc = 15
 
-        for KPI in ['CTR', 'VID', 'IR']:
-            self.KPI = KPI
+        for creative_type in self.creative_types:
+            self.creative_type = creative_type
             groupbys = self.instructions[self.tab]['groupby']
 
-            self.wtd_prod = self.wtd[self.wtd['KPI'] == self.KPI].groupby(
+            self.wtd_prod = self.wtd[self.wtd['creative.type'] == self.creative_type].groupby(
                 groupbys, as_index=False).sum()
             if len(self.wtd_prod) > 0:
                 self.wtd_prod = self.metric_calcs(self.wtd_prod)
@@ -271,7 +346,7 @@ class excel_exporter():
                 self.write_excel(self.wtd_prod, row, colw)
                 self.conditional_format(self.wtd_prod, row, colw)
 
-            self.ctd_prod = self.ctd[self.ctd['KPI'] == self.KPI].groupby(
+            self.ctd_prod = self.ctd[self.ctd['creative.type'] == self.creative_type].groupby(
                 groupbys, as_index=False).sum()
             if len(self.ctd_prod) > 0:
                 self.ctd_prod = self.metric_calcs(self.ctd_prod)
@@ -280,51 +355,72 @@ class excel_exporter():
                 self.write_excel(self.ctd_prod, row, colc)
                 self.conditional_format(self.ctd_prod, row, colc)
 
-            row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
+            if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
+                row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
 
         ################# Creative tab #########################################
         self.tab = 'creative'
         self.create_sheet()
         row = 3
         colw = 0
-        colc = 14
+        colc = 15
 
-        self.KPI = 'CTR'
-        self.wtd_crt = self.wtd.groupby(('site', 'placement', 'Creative'),
-            as_index=False).sum()
-        if len(self.wtd_crt) > 0:
-            self.wtd_crt = self.metric_calcs(self.wtd_crt)
-            self.wtd_crt = self.trim_columns(self.wtd_crt)
-            self.write_excel(self.wtd_crt, row, colw)
+        for creative_type in self.creative_types:
+            self.creative_type = creative_type
+            groupbys = self.instructions[self.tab]['groupby']
 
-        self.ctd_crt = self.ctd.groupby(('site', 'placement', 'Creative'),
-            as_index=False).sum()
-        if len(self.ctd_crt) > 0:
-            self.ctd_crt = self.metric_calcs(self.ctd_crt)
-            self.ctd_crt = self.trim_columns(self.ctd_crt)
-            self.write_excel(self.ctd_crt, row, colc)
+            self.wtd_prod = self.wtd[self.wtd['creative.type'] == self.creative_type].groupby(
+                groupbys, as_index=False).sum()
+            if len(self.wtd_prod) > 0:
+                self.wtd_prod = self.metric_calcs(self.wtd_prod)
+                # self.wtd_prod = self.apply_benchmarks(self.wtd_prod)
+                self.wtd_prod = self.trim_columns(self.wtd_prod)
+                self.write_excel(self.wtd_prod, row, colw)
+                # self.conditional_format(self.wtd_prod, row, colw)
+
+            self.ctd_prod = self.ctd[self.ctd['creative.type'] == self.creative_type].groupby(
+                groupbys, as_index=False).sum()
+            if len(self.ctd_prod) > 0:
+                self.ctd_prod = self.metric_calcs(self.ctd_prod)
+                # self.ctd_prod = self.apply_benchmarks(self.ctd_prod)
+                self.ctd_prod = self.trim_columns(self.ctd_prod)
+                self.write_excel(self.ctd_prod, row, colc)
+                # self.conditional_format(self.ctd_prod, row, colc)
+
+            row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
+
 
         ################ Line item tab ########################################
         self.tab = 'line item'
         self.create_sheet()
         row = 3
         colw = 0
-        colc = 14
+        colc = 15
 
-        self.KPI = 'CTR'
-        self.wtd_crt = self.wtd.groupby(('site', 'Line item', 'Creative'),
-            as_index=False).sum()
-        if len(self.wtd_crt) > 0:
-            self.wtd_crt = self.metric_calcs(self.wtd_crt)
-            self.wtd_crt = self.trim_columns(self.wtd_crt)
-            self.write_excel(self.wtd_crt, row, colw)
+        for creative_type in self.creative_types:
+            self.creative_type = creative_type
+            groupbys = self.instructions[self.tab]['groupby']
 
-        self.ctd_crt = self.ctd.groupby(('site', 'Line item', 'Creative'),
-            as_index=False).sum()
-        if len(self.ctd_crt) > 0:
-            self.ctd_crt = self.metric_calcs(self.ctd_crt)
-            self.ctd_crt = self.trim_columns(self.ctd_crt)
-            self.write_excel(self.ctd_crt, row, colc)
+            self.wtd_prod = self.wtd[self.wtd['creative.type'] == self.creative_type].groupby(
+                groupbys, as_index=False).sum()
+            if len(self.wtd_prod) > 0:
+                self.wtd_prod = self.metric_calcs(self.wtd_prod)
+                # self.wtd_prod = self.apply_benchmarks(self.wtd_prod)
+                self.wtd_prod = self.trim_columns(self.wtd_prod)
+                self.write_excel(self.wtd_prod, row, colw)
+                # self.conditional_format(self.wtd_prod, row, colw)
+
+            self.ctd_prod = self.ctd[self.ctd['creative.type'] == self.creative_type].groupby(
+                groupbys, as_index=False).sum()
+            if len(self.ctd_prod) > 0:
+                self.ctd_prod = self.metric_calcs(self.ctd_prod)
+                # self.ctd_prod = self.apply_benchmarks(self.ctd_prod)
+                self.ctd_prod = self.trim_columns(self.ctd_prod)
+                self.write_excel(self.ctd_prod, row, colc)
+                # self.conditional_format(self.ctd_prod, row, colc)
+
+            row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
+
 
         ################# data tab and save #####################################
         self.df.sort_values('Date', ascending=False).to_excel(
