@@ -43,7 +43,7 @@ def loop_exports(self, directory='/users/csaunders/Desktop/', number='all',
             print('completed -', export, end=' ||| ')
 
 class excel_exporter():
-    def __init__(self, df, benchmarks,  d1, d2, d2_7,):
+    def __init__(self, df, benchmarks,  d1, d2, d2_7, custom_tab):
         """
         df - dataframe to export to excel --> single advert / order
         """
@@ -61,6 +61,9 @@ class excel_exporter():
             'interactive video',
             'no match'
         )
+
+        if custom_tab is not None:
+            self.custom_tab = custom_tab
 
     def return_benchmark(self, KPI, placement, source):
         """
@@ -245,6 +248,12 @@ class excel_exporter():
                             'DFP view %', 'DFP CTR BM', '3P CTR BM',
                             'DFP VSR BM', 'DFP IR BM']
             },
+            'Custom': {
+                'groupby': ['none'],
+                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', 'DFP IR %',
+                            'DFP view %', 'DFP CTR BM', '3P CTR BM',
+                            'DFP VSR BM', 'DFP IR BM']
+            },
             'creative': {
                 'groupby': ['site', 'placement', 'Creative', 'creative.type'],
                 'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
@@ -254,8 +263,9 @@ class excel_exporter():
                 'groupby': ['site', 'Line item', 'Creative', 'creative.type'],
                 'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
                             'VCR 75 %', 'DFP IR %', '3P IR %', 'DFP view %']
-            },
+            }
         }
+
 
         # initialize xlsxwriter and set book formats
         advert = set(self.df['Advertiser']).pop()
@@ -312,6 +322,35 @@ class excel_exporter():
 
             if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
                 row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
+
+        ################# Custom tab #########################################
+        if self.custom_tab is not None:
+            self.tab = 'Custom'
+            self.create_sheet()
+            row = 3
+            colw = 0
+            colc = 15
+
+            groupbys = [i for i in self.custom_tab.columns if 'Header' not in i]
+            headers = [i for i in self.custom_tab.columns if 'Header' in i]
+            custom_columns = (headers +
+                             ["DFP server imps", "3P imps"] +
+                             ['DFP CTR %', '3P CTR %', 'DFP VSR %',
+                              'DFP IR %', 'DFP view %']
+            )
+
+            self.wtd_prod = pd.merge(self.wtd, self.custom_tab, on=groupbys, how='left')
+            self.wtd_prod = self.wtd_prod.groupby(headers, as_index=False).sum()
+            self.wtd_prod = self.metric_calcs(self.wtd_prod)
+            self.wtd_prod = self.wtd_prod[custom_columns]
+            self.write_excel(self.wtd_prod, row, colw)
+
+            self.ctd_prod = pd.merge(self.ctd, self.custom_tab, on=groupbys, how='left')
+            self.ctd_prod = self.ctd_prod.groupby(headers, as_index=False).sum()
+            self.ctd_prod = self.metric_calcs(self.ctd_prod)
+            self.ctd_prod = self.ctd_prod[custom_columns]
+            self.write_excel(self.ctd_prod, row, colc)
+
 
         ################# Creative tab #########################################
         self.tab = 'creative'
