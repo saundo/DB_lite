@@ -462,7 +462,8 @@ class dataframe_reducer():
             'Ad server Active View viewable impressions',
             'placement',
             'result_5', 'result_75', 'int sessions', 'interactions',
-            'creative.type', 'adunit', 'site']
+            'creative.type', 'adunit', 'site',
+            'device']
 
         in_range = self.summarized[(self.summarized['Max date'] > min_date) &
                                    (self.summarized['total DFP imp'] > min_impressions)].copy()
@@ -780,10 +781,8 @@ class metric_explorer():
         x1 = self.df[(sb1) & (sb2) & (sb3)]
         self.AO_multiple.options = list(set(x1['advert_order']))
 
-
     def print_button(self, change):
         print('you pressed the button!')
-
 
     def display_dashboard(self):
         """
@@ -802,10 +801,5 @@ class metric_explorer():
 
     def graph_metrics(self):
         pass
-
-
-
-
-
 
 
