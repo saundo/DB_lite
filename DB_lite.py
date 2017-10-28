@@ -454,7 +454,8 @@ class dataframe_reducer():
         min_impressions - any order with less than this amount is ignored
         """
         column_keep = [
-            'Date', 'Advertiser', 'Order',
+            'Date',
+            'Advertiser', 'Order',
             'Line item ID', 'Line item',
             'Creative', 'Creative ID',
             'Normalized 3P Impressions', 'Normalized 3P Clicks',
@@ -462,7 +463,8 @@ class dataframe_reducer():
             'Ad server Active View viewable impressions',
             'placement',
             'result_5', 'result_75', 'int sessions', 'interactions',
-            'creative.type', 'adunit', 'site',
+            'creative.type', 'creative.name',
+            'adunit', 'site',
             'device']
 
         in_range = self.summarized[(self.summarized['Max date'] > min_date) &
