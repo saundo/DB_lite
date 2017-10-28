@@ -255,12 +255,12 @@ class excel_exporter():
                             'DFP VSR BM', 'DFP IR BM']
             },
             'creative': {
-                'groupby': ['site', 'placement', 'Creative', 'creative.type'],
+                'groupby': ['site', 'placement', 'creative.name', 'creative.type'],
                 'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
                             'VCR 75 %', 'DFP IR %', '3P IR %', 'DFP view %']
             },
             'line item': {
-                'groupby': ['site', 'Line item', 'Creative', 'creative.type'],
+                'groupby': ['site', 'Line item', 'creative.name', 'creative.type'],
                 'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
                             'VCR 75 %', 'DFP IR %', '3P IR %', 'DFP view %']
             }
