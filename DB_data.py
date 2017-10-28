@@ -171,10 +171,14 @@ def unpack_keen(data):
     df['date'] = df['date'].dt.strftime('%Y-%m-%d')
 
     df = df.rename(index=str, columns=p_dict)
-    df['Creative ID'] = df['Creative ID'].astype(int)
-    df['Line item ID'] = df['Line item ID'].astype(int)
+
+    # check for weird results  --> verify with Apostolis
+    dfx = df[df['Creative ID'] != str('%ecid!')].copy()
+    dfx['Creative ID'] = dfx['Creative ID'].astype(int)
+    dfx['Line item ID'] = dfx['Line item ID'].astype(int)
     print('unpacked')
-    return df
+    print((len(df) - len(dfx)), ' rows with anomalies')
+    return dfx
 
 ################################## STAQ ########################################
 class STAQ_prep():
@@ -233,7 +237,8 @@ class STAQ_prep():
             'email-logo':'oth',
             'email-content':'oth',
             'flash-brief': 'oth',
-            'iphone_test':'oth'
+            'iphone_test':'oth',
+            'newsstand':'Google News ads'
         }
         try:
             self.STAQ['site'] = self.STAQ['Ad unit'].apply(lambda x: site_lookup[x])
@@ -578,18 +583,9 @@ class assemble():
 
     def apply_descriptors(self):
         """
-        NEED TO HAVE CONVO ON THIS, especially around KPI allocation
-        + KPIs
-        + adunit
+        Keep it at creative.type
         THIS ALSO WILL NEED SOME TLC after Quartz at Work
         """
-        def KPIs(x):
-            if x == 'interactive non video':
-                return 'IR'
-            elif x == 'interactive video' or x == 'video':
-                return 'VID'
-            else:
-                return 'CTR'
 
         def adunit(x):
             if 'engage' in x:
@@ -601,5 +597,6 @@ class assemble():
             else:
                 return 'oth'
 
-        self.df_master['KPI'] = self.df_master['creative.type'].apply(KPIs)
         self.df_master['adunit'] = self.df_master['placement'].apply(adunit)
+        #fill creative.type with values other than NaN
+        self.df_master['creative.type'] = self.df_master['creative.type'].fillna('no match')

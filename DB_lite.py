@@ -43,7 +43,7 @@ def loop_exports(self, directory='/users/csaunders/Desktop/', number='all',
             print('completed -', export, end=' ||| ')
 
 class excel_exporter():
-    def __init__(self, df, benchmarks,  d1, d2, d2_7,):
+    def __init__(self, df, benchmarks,  d1, d2, d2_7, custom_tab):
         """
         df - dataframe to export to excel --> single advert / order
         """
@@ -52,6 +52,18 @@ class excel_exporter():
         self.d1 = d1
         self.d2 = d2
         self.d2_7 = d2_7
+
+        self.creative_types = (
+            'traffic driver',
+            'interactive non video',
+            'branded driver',
+            'video',
+            'interactive video',
+            'no match'
+        )
+
+        if custom_tab is not None:
+            self.custom_tab = custom_tab
 
     def return_benchmark(self, KPI, placement, source):
         """
@@ -94,7 +106,7 @@ class excel_exporter():
 
         df = df.rename(index=str, columns=column_renaming)
 
-        for key in self.instructions[self.tab][self.KPI]:
+        for key in self.instructions[self.tab]['display']:
             if "BM" in key:
                 continue
             elif 'IR' in key:
@@ -111,24 +123,29 @@ class excel_exporter():
         """
         BM_dict = {
             'CTR' : ('DFP CTR BM', '3P CTR BM'),
-            'VID' : ('DFP VSR BM', '3P VSR BM'),
-            'IR'  : ('DFP IR BM', '3P IR BM')
+            'VID' : ('DFP VSR BM'),
+            'IR'  : ('DFP IR BM')
         }
 
-        BMlist_DFP, BMlist_3P = [], []
+        BM_CTR_DFP, BM_CTR_3P = [], []
+        BM_VSR_DFP, BM_IR_DFP = [], []
         for i in range(len(df)):
             placement = df.iloc[i]['placement']
-            BMlist_DFP.append(self.return_benchmark(self.KPI, placement, 'DFP'))
-            BMlist_3P.append(self.return_benchmark(self.KPI, placement, '3P'))
-        df[BM_dict[self.KPI][0]] = BMlist_DFP
-        df[BM_dict[self.KPI][1]] = BMlist_3P
+            BM_CTR_DFP.append(self.return_benchmark('CTR', placement, 'DFP'))
+            BM_CTR_3P.append(self.return_benchmark('CTR', placement, '3P'))
+            BM_VSR_DFP.append(self.return_benchmark('VID', placement, 'DFP'))
+            BM_IR_DFP.append(self.return_benchmark('IR', placement, 'DFP'))
+        df[BM_dict['CTR'][0]] = BM_CTR_DFP
+        df[BM_dict['CTR'][1]] = BM_CTR_3P
+        df['DFP VSR BM'] = BM_VSR_DFP
+        df['DFP IR BM'] = BM_IR_DFP
         return df
 
     def trim_columns(self, df):
         """
         """
         col1 = self.instructions[self.tab]['groupby']
-        col2 = self.instructions[self.tab][self.KPI]
+        col2 = self.instructions[self.tab]['display']
         df = df[list(col1) + ["DFP server imps", "3P imps"] + list(col2)]
         df = df.sort_values('DFP server imps', ascending=False)
         return df
@@ -143,10 +160,10 @@ class excel_exporter():
         self.worksheet.write(0,1, 'Week to date')
         self.worksheet.write(1,1, str(self.d2_7) + ' -> ' + str(self.d2))
 
-        self.worksheet.write(0,14, 'Cumulative to date')
-        self.worksheet.write(1,14, self.ctd_min_date + ' -> ' + str(self.d2))
+        self.worksheet.write(0,15, 'Cumulative to date')
+        self.worksheet.write(1,15, self.ctd_min_date + ' -> ' + str(self.d2))
 
-        self.worksheet.set_column(13, 13, 1, self.divider)
+        self.worksheet.set_column(14, 14, 1, self.divider)
 
     def write_excel(self, df, row, col):
         """
@@ -168,40 +185,52 @@ class excel_exporter():
     def conditional_format(self, df, row, col):
         """
         """
-        if self.KPI == 'CTR':
-            KPI_col = 5 + col
-        elif self.KPI == 'VID':
-            KPI_col = 7 + col
-        else:
-            KPI_col = 7 + col
-        # need to do both DFP and 3P
-        # this wont work if no placement...
-        for i in range(len(df)):
-            placement = df.iloc[i]['placement']
+        def paint_it(col, KPI, source):
+            """
+            applies the format by looping over placement
+            """
+            for i in range(len(df)):
+                placement = df.iloc[i]['placement']
+                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
+                    {'type': 'cell',
+                    'criteria': 'less than',
+                    'value': self.return_benchmark(KPI, placement, source) * 0.75,
+                    'format': self.f_red_dark})
 
-            #DFP conditional formatting
-            self.worksheet.conditional_format(row+1+i, KPI_col, row+1+i, KPI_col,
-                {'type': 'cell',
-                'criteria': 'less than',
-                'value': self.return_benchmark(self.KPI, placement, 'DFP'),
-                'format': self.f_red})
-            self.worksheet.conditional_format(row+1+i, KPI_col, row+1+i, KPI_col,
-                {'type': 'cell',
-                'criteria': 'greater than',
-                'value': self.return_benchmark(self.KPI, placement, 'DFP'),
-                'format': self.f_green})
+                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
+                    {'type': 'cell',
+                    'criteria': 'between',
+                    'minimum': self.return_benchmark(KPI, placement, source) * 0.75,
+                    'maximum': self.return_benchmark(KPI, placement, source),
+                    'format': self.f_red_light})
 
-            #3P conditional formatting
-            self.worksheet.conditional_format(row+1+i, KPI_col+1, row+1+i, KPI_col+1,
-                {'type': 'cell',
-                'criteria': 'less than',
-                'value': self.return_benchmark(self.KPI, placement, '3P'),
-                'format': self.f_red})
-            self.worksheet.conditional_format(row+1+i, KPI_col+1, row+1+i, KPI_col+1,
-                {'type': 'cell',
-                'criteria': 'greater than',
-                'value': self.return_benchmark(self.KPI, placement, '3P'),
-                'format': self.f_green})
+                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
+                    {'type': 'cell',
+                    'criteria': 'between',
+                    'minimum': self.return_benchmark(KPI, placement, source),
+                    'maximum': self.return_benchmark(KPI, placement, source) * 1.25,
+                    'format': self.f_green_light})
+
+                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
+                    {'type': 'cell',
+                    'criteria': 'greater than',
+                    'value': self.return_benchmark(KPI, placement, source) * 1.25,
+                    'format': self.f_green_dark})
+
+        CTR_DFP = 5 + col
+        CTR_3P = 6 + col
+        VSR_DFP = 7 + col
+        IR_DFP = 8 + col
+
+        formatting_order = [
+            (CTR_DFP, 'CTR', 'DFP'),
+            (CTR_3P, 'CTR', '3P'),
+            (VSR_DFP, 'VID', 'DFP'),
+            (IR_DFP, 'IR', 'DFP')
+        ]
+
+        for order in formatting_order:
+            paint_it(order[0], order[1], order[2])
 
     def execute_export(self, directory='/users/csaunders/Desktop/excel_export_test/'):
         """
@@ -214,25 +243,29 @@ class excel_exporter():
         """
         self.instructions = {
             'producer': {
-                'groupby': ['site', 'KPI', 'placement'],
-                'CTR'    : ['DFP CTR %', '3P CTR %', 'DFP view %',
-                            'DFP CTR BM', '3P CTR BM'],
-                'VID'    : ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
-                            'VCR 75 %', 'DFP view %', 'DFP VSR BM', '3P VSR BM'],
-                'IR'     : ['DFP CTR %', '3P CTR %', 'DFP IR %', '3P IR %',
-                            'DFP view %', 'DFP IR BM', '3P IR BM']
+                'groupby': ['site', 'creative.type', 'placement'],
+                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', 'DFP IR %',
+                            'DFP view %', 'DFP CTR BM', '3P CTR BM',
+                            'DFP VSR BM', 'DFP IR BM']
+            },
+            'Custom': {
+                'groupby': ['none'],
+                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', 'DFP IR %',
+                            'DFP view %', 'DFP CTR BM', '3P CTR BM',
+                            'DFP VSR BM', 'DFP IR BM']
             },
             'creative': {
-                'groupby': ['site', 'placement', 'Creative'],
-                'CTR'    : ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
+                'groupby': ['site', 'placement', 'Creative', 'creative.type'],
+                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
                             'VCR 75 %', 'DFP IR %', '3P IR %', 'DFP view %']
             },
             'line item': {
-                'groupby': ['site', 'Line item', 'Creative'],
-                'CTR'    : ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
+                'groupby': ['site', 'Line item', 'Creative', 'creative.type'],
+                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
                             'VCR 75 %', 'DFP IR %', '3P IR %', 'DFP view %']
-            },
+            }
         }
+
 
         # initialize xlsxwriter and set book formats
         advert = set(self.df['Advertiser']).pop()
@@ -240,10 +273,17 @@ class excel_exporter():
         file_name = advert + ' ' + order + '.xlsx'
         self.writer = pd.ExcelWriter(directory + file_name, engine='xlsxwriter')
 
-        self.f_red = self.writer.book.add_format({'bg_color': '#f79494',
+        self.f_red_dark = self.writer.book.add_format({'bg_color': '#f79494',
             'font_color': '#9C0006'})
-        self.f_green = self.writer.book.add_format({'bg_color': '#4bd164',
+        self.f_red_light= self.writer.book.add_format({'bg_color': '#FFC7CE',
+            'font_color': '#9C0006'})
+
+        self.f_green_light = self.writer.book.add_format({'bg_color': '#C6EFCE',
             'font_color': '#019117'})
+        self.f_green_dark = self.writer.book.add_format({'bg_color': '#4bd164',
+            'font_color': '#019117'})
+
+
         self.divider = self.writer.book.add_format({'bg_color': '#000000'})
 
         # create week to date (wtd) and cumulative to date (ctd)
@@ -256,13 +296,13 @@ class excel_exporter():
         self.create_sheet()
         row = 3
         colw = 0
-        colc = 14
+        colc = 15
 
-        for KPI in ['CTR', 'VID', 'IR']:
-            self.KPI = KPI
+        for creative_type in self.creative_types:
+            self.creative_type = creative_type
             groupbys = self.instructions[self.tab]['groupby']
 
-            self.wtd_prod = self.wtd[self.wtd['KPI'] == self.KPI].groupby(
+            self.wtd_prod = self.wtd[self.wtd['creative.type'] == self.creative_type].groupby(
                 groupbys, as_index=False).sum()
             if len(self.wtd_prod) > 0:
                 self.wtd_prod = self.metric_calcs(self.wtd_prod)
@@ -271,7 +311,7 @@ class excel_exporter():
                 self.write_excel(self.wtd_prod, row, colw)
                 self.conditional_format(self.wtd_prod, row, colw)
 
-            self.ctd_prod = self.ctd[self.ctd['KPI'] == self.KPI].groupby(
+            self.ctd_prod = self.ctd[self.ctd['creative.type'] == self.creative_type].groupby(
                 groupbys, as_index=False).sum()
             if len(self.ctd_prod) > 0:
                 self.ctd_prod = self.metric_calcs(self.ctd_prod)
@@ -280,51 +320,102 @@ class excel_exporter():
                 self.write_excel(self.ctd_prod, row, colc)
                 self.conditional_format(self.ctd_prod, row, colc)
 
-            row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
+            if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
+                row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
+
+        ################# Custom tab #########################################
+        if self.custom_tab is not None:
+            self.tab = 'Custom'
+            self.create_sheet()
+            row = 3
+            colw = 0
+            colc = 15
+
+            groupbys = [i for i in self.custom_tab.columns if 'Header' not in i]
+            headers = [i for i in self.custom_tab.columns if 'Header' in i]
+            custom_columns = (headers +
+                             ["DFP server imps", "3P imps"] +
+                             ['DFP CTR %', '3P CTR %', 'DFP VSR %',
+                              'DFP IR %', 'DFP view %']
+            )
+
+            self.wtd_prod = pd.merge(self.wtd, self.custom_tab, on=groupbys, how='left')
+            self.wtd_prod = self.wtd_prod.groupby(headers, as_index=False).sum()
+            self.wtd_prod = self.metric_calcs(self.wtd_prod)
+            self.wtd_prod = self.wtd_prod[custom_columns]
+            self.write_excel(self.wtd_prod, row, colw)
+
+            self.ctd_prod = pd.merge(self.ctd, self.custom_tab, on=groupbys, how='left')
+            self.ctd_prod = self.ctd_prod.groupby(headers, as_index=False).sum()
+            self.ctd_prod = self.metric_calcs(self.ctd_prod)
+            self.ctd_prod = self.ctd_prod[custom_columns]
+            self.write_excel(self.ctd_prod, row, colc)
+
 
         ################# Creative tab #########################################
         self.tab = 'creative'
         self.create_sheet()
         row = 3
         colw = 0
-        colc = 14
+        colc = 15
 
-        self.KPI = 'CTR'
-        self.wtd_crt = self.wtd.groupby(('site', 'placement', 'Creative'),
-            as_index=False).sum()
-        if len(self.wtd_crt) > 0:
-            self.wtd_crt = self.metric_calcs(self.wtd_crt)
-            self.wtd_crt = self.trim_columns(self.wtd_crt)
-            self.write_excel(self.wtd_crt, row, colw)
+        for creative_type in self.creative_types:
+            self.creative_type = creative_type
+            groupbys = self.instructions[self.tab]['groupby']
 
-        self.ctd_crt = self.ctd.groupby(('site', 'placement', 'Creative'),
-            as_index=False).sum()
-        if len(self.ctd_crt) > 0:
-            self.ctd_crt = self.metric_calcs(self.ctd_crt)
-            self.ctd_crt = self.trim_columns(self.ctd_crt)
-            self.write_excel(self.ctd_crt, row, colc)
+            self.wtd_prod = self.wtd[self.wtd['creative.type'] == self.creative_type].groupby(
+                groupbys, as_index=False).sum()
+            if len(self.wtd_prod) > 0:
+                self.wtd_prod = self.metric_calcs(self.wtd_prod)
+                # self.wtd_prod = self.apply_benchmarks(self.wtd_prod)
+                self.wtd_prod = self.trim_columns(self.wtd_prod)
+                self.write_excel(self.wtd_prod, row, colw)
+                # self.conditional_format(self.wtd_prod, row, colw)
+
+            self.ctd_prod = self.ctd[self.ctd['creative.type'] == self.creative_type].groupby(
+                groupbys, as_index=False).sum()
+            if len(self.ctd_prod) > 0:
+                self.ctd_prod = self.metric_calcs(self.ctd_prod)
+                # self.ctd_prod = self.apply_benchmarks(self.ctd_prod)
+                self.ctd_prod = self.trim_columns(self.ctd_prod)
+                self.write_excel(self.ctd_prod, row, colc)
+                # self.conditional_format(self.ctd_prod, row, colc)
+
+            if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
+                row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
+
 
         ################ Line item tab ########################################
         self.tab = 'line item'
         self.create_sheet()
         row = 3
         colw = 0
-        colc = 14
+        colc = 15
 
-        self.KPI = 'CTR'
-        self.wtd_crt = self.wtd.groupby(('site', 'Line item', 'Creative'),
-            as_index=False).sum()
-        if len(self.wtd_crt) > 0:
-            self.wtd_crt = self.metric_calcs(self.wtd_crt)
-            self.wtd_crt = self.trim_columns(self.wtd_crt)
-            self.write_excel(self.wtd_crt, row, colw)
+        for creative_type in self.creative_types:
+            self.creative_type = creative_type
+            groupbys = self.instructions[self.tab]['groupby']
 
-        self.ctd_crt = self.ctd.groupby(('site', 'Line item', 'Creative'),
-            as_index=False).sum()
-        if len(self.ctd_crt) > 0:
-            self.ctd_crt = self.metric_calcs(self.ctd_crt)
-            self.ctd_crt = self.trim_columns(self.ctd_crt)
-            self.write_excel(self.ctd_crt, row, colc)
+            self.wtd_prod = self.wtd[self.wtd['creative.type'] == self.creative_type].groupby(
+                groupbys, as_index=False).sum()
+            if len(self.wtd_prod) > 0:
+                self.wtd_prod = self.metric_calcs(self.wtd_prod)
+                # self.wtd_prod = self.apply_benchmarks(self.wtd_prod)
+                self.wtd_prod = self.trim_columns(self.wtd_prod)
+                self.write_excel(self.wtd_prod, row, colw)
+                # self.conditional_format(self.wtd_prod, row, colw)
+
+            self.ctd_prod = self.ctd[self.ctd['creative.type'] == self.creative_type].groupby(
+                groupbys, as_index=False).sum()
+            if len(self.ctd_prod) > 0:
+                self.ctd_prod = self.metric_calcs(self.ctd_prod)
+                # self.ctd_prod = self.apply_benchmarks(self.ctd_prod)
+                self.ctd_prod = self.trim_columns(self.ctd_prod)
+                self.write_excel(self.ctd_prod, row, colc)
+                # self.conditional_format(self.ctd_prod, row, colc)
+
+            if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
+                row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
 
         ################# data tab and save #####################################
         self.df.sort_values('Date', ascending=False).to_excel(
@@ -371,7 +462,8 @@ class dataframe_reducer():
             'Ad server Active View viewable impressions',
             'placement',
             'result_5', 'result_75', 'int sessions', 'interactions',
-            'KPI', 'adunit', 'site']
+            'creative.type', 'adunit', 'site',
+            'device']
 
         in_range = self.summarized[(self.summarized['Max date'] > min_date) &
                                    (self.summarized['total DFP imp'] > min_impressions)].copy()
@@ -445,8 +537,8 @@ class dashboard_control():
             """
             sb1 = self.df['Advertiser'] == self.advert_dropdown.value
             sb2 = self.df['Order'] == self.order_dropdown.value
-            self.d1_DatePicker.value = self.df[(sb1) & (sb2)]['Date'].min()
-            self.d2_DatePicker.value = self.df[(sb1) & (sb2)]['Date'].max()
+            self.d1_DatePicker.value = (self.df[(sb1) & (sb2)]['Date'].min()).date()
+            self.d2_DatePicker.value = (self.df[(sb1) & (sb2)]['Date'].max()).date()
 
             # def update_selection(self, change):
             #     x1 = self.df['Advertiser'] == self.advert_dropdown.value
@@ -479,7 +571,8 @@ class dashboard_control():
                 "Normalized 3P Impressions":"3P imps",
                 "Normalized 3P Clicks": "3P clicks",
                 "Ad server Active View viewable impressions":"DFP Viewable imps",
-                "Ad server downloaded impressions":"DFP downloaded imps"
+                "Ad server downloaded impressions":"DFP downloaded imps",
+                "creative.type":"creative.type"
             }
 
             df = df.rename(index=str, columns=column_renaming)
@@ -528,46 +621,16 @@ class dashboard_control():
             dfx = dfx.sort_values(base_cols[0], ascending=False)
             display(dfx.applymap(number_formatting))
 
-        display_options_CTR = {
+        display_options = {
             'producer':
-                ['DFP CTR %', '3P CTR %', 'DFP view %'],
+                ['DFP CTR %', '3P CTR %', 'DFP VSR %', 'DFP IR %', 'DFP view %'],
             'raw values':
                 ['DFP clicks', '3P clicks', 'DFP Viewable imps',
-                 'result_5', 'result_75', 'int_session', 'result'],
+                 'result_5', 'result_75', 'int sessions', 'interactions'],
             'metrics DFP':
                 ['DFP CTR %', 'DFP VSR %', 'DFP IR %', 'DFP view %'],
             'metrics 3P':
                 ['3P CTR %', '3P VSR %', '3P IR %'],
-            'metrics all':
-                ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %', 'VCR 75 %',
-                 'DFP IR %', '3P IR %','DFP view %']
-        }
-
-        display_options_VID = {
-            'producer':
-                ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %', 'VCR 75 %', 'DFP view %'],
-            'raw values':
-                ['DFP clicks', '3P clicks', 'DFP Viewable imps',
-                 'result_5', 'result_75', 'int_session', 'result'],
-            'metrics DFP':
-                ['DFP CTR %', 'DFP VSR %', 'VCR 75 %', 'DFP view %'],
-            'metrics 3P':
-                ['3P CTR %', '3P VSR %', 'VCR 75 %'],
-            'metrics all':
-                ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %', 'VCR 75 %',
-                 'DFP IR %', '3P IR %','DFP view %']
-        }
-
-        display_options_IR = {
-            "producer":
-                ['DFP CTR %', '3P CTR %', 'DFP IR %', '3P IR %', 'DFP view %'],
-            'raw values':
-                ['DFP clicks', '3P clicks', 'DFP Viewable imps',
-                 'result_5', 'result_75', 'int_session', 'result'],
-            'metrics DFP':
-                ['DFP CTR %', 'DFP IR %', 'DFP view %'],
-            'metrics 3P':
-                ['3P CTR %', '3P IR %'],
             'metrics all':
                 ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %', 'VCR 75 %',
                  'DFP IR %', '3P IR %','DFP view %']
@@ -594,6 +657,12 @@ class dashboard_control():
             print('no data')
             return
 
+        if d1_date < dfx['Date'].min().date():
+            print('\033[1m'+'WARNING - data does not exist before: '+'\033[0m',
+                str(dfx['Date'].min().date()))
+
+
+
         #define groupbys
         creative_dict_lookup = {"All creatives": ['engage', 'marquee', 'inline'],
                                 "Engage creatives": ['engage'],
@@ -601,24 +670,231 @@ class dashboard_control():
                                 "Inline creatives": ['inline']}
 
         if creative == "No creatives":
-            groupings = ['site', 'KPI', PL_selection]
+            groupings = ['site', 'creative.type', PL_selection]
 
         else:
             sb1 = dfx['adunit'].apply(lambda x: x in creative_dict_lookup[creative])
             dfx = dfx[sb1]
-            groupings = ['site', 'KPI', PL_selection, 'Creative']
+            groupings = ['site', 'creative.type', PL_selection, 'Creative']
 
         dfx = dfx.groupby(groupings, as_index=False).sum()
         dfx = metric_calculations(dfx)
 
-        CTR = dfx[dfx['KPI'] == 'CTR']
-        VID = dfx[dfx['KPI'] == 'VID']
-        IR = dfx[dfx['KPI'] == 'IR']
+        creative_types = ('traffic driver',
+                          'interactive non video',
+                          'branded driver',
+                          'video',
+                          'interactive video',
+                          'no match')
+
+        for creative_type in creative_types:
+            dfxx = dfx[dfx['creative.type'] == creative_type]
+            if len(dfxx) > 1:
+                final_formatting(dfxx, display_options)
+
+################################## Metric explorer #############################
+class metric_explorer():
+    """
+    class for exploring metrics within the Dashboard_lite
+    """
+    def __init__(self, df):
+        """
+        + initialize class with dataframe
+        + initiatlive all ipywidgets
+        """
+        self.df = df
+        self.split_param = ' - * - '
+
+        self.df['advert_order'] = self.df['Advertiser'] + self.split_param + self.df['Order']
+
+        self.creative_types = ('no match', 'traffic driver',
+            'interactive non video', 'branded driver', 'video',
+            'interactive video'
+        )
+
+        self.AO_multiple = ipywidgets.SelectMultiple(
+            options=sorted(set(self.df['advert_order'])),
+            value=[],
+            rows=3,
+            description='Advert-order',
+            disabled=False,
+            layout=ipywidgets.Layout(width='50%', height='280px')
+        )
+
+        self.site_dropdown = ipywidgets.Dropdown(
+            options = ['qz', 'wrk', 'zty'],
+            value='qz',
+            disabled=False
+        )
+
+        self.placement_dropdown = ipywidgets.Dropdown(
+            options = ['engage mobile', 'engage desktop',
+                       'marquee mobile', 'marquee desktop',
+                       'inline mobile', 'inline desktop'],
+            value='engage mobile',
+            disabled=False
+        )
+
+        self.creative_type_dropdown = ipywidgets.Dropdown(
+            options=self.creative_types,
+            value=self.creative_types[0],
+            disabled=False
+        )
+
+        self.metric_measurement = ipywidgets.Dropdown(
+            options=['DFP CTR', '3P CTR', 'Viewability', 'VSR', 'IR'],
+            value='DFP CTR',
+            disabled=False
+        )
+
+        self.d1_DatePicker = ipywidgets.DatePicker(disabled=False)
+        self.d2_DatePicker = ipywidgets.DatePicker(disabled=False)
+
+        self.aggregate_checkbox = ipywidgets.Checkbox(
+            value=False,
+            description='Display aggregate',
+            disabled=False
+        )
+
+        self.button = ipywidgets.Button(description="CHART IT !",
+            layout=ipywidgets.Layout(width='100%', height='55px')
+        )
+
+        self.left_box = ipywidgets.VBox(
+            [self.site_dropdown, self.placement_dropdown,
+             self.creative_type_dropdown, self.metric_measurement,
+             self.d1_DatePicker, self.d2_DatePicker,
+             self.aggregate_checkbox, self.button]
+        )
+
+        self.display = ipywidgets.HBox([self.left_box, self.AO_multiple])
+
+    def update_AO_multiple(self, change):
+        """
+        update advert_order multiple select widget
+        """
+        sb1 = self.df['site'] == self.site_dropdown.value
+        sb2 = self.df['placement'] == self.placement_dropdown.value
+        sb3 = self.df['creative.type'] == self.creative_type_dropdown.value
+        #sb4 = self.df['site'] == self.site_dropdown.value
+
+        x1 = self.df[(sb1) & (sb2) & (sb3)]
+        self.AO_multiple.options = list(set(x1['advert_order']))
+
+    def display_dashboard(self):
+        """
+        display the metric explorer dashboard
+        """
+
+        self.site_dropdown.observe(self.update_AO_multiple, names='value')
+        self.placement_dropdown.observe(self.update_AO_multiple, names='value')
+        self.creative_type_dropdown.observe(self.update_AO_multiple, names='value')
+        #self.metric_measurement.observe(update_AO_multiple, names='value')
+
+        self.button.on_click(self.print_button)
+
+        return self.display
+
+    def print_button(self, change):
+        self.create_chart_dataset()
+        self.graph_metrics()
+        print('you pressed the button!')
 
 
-        if len(CTR) > 1:
-            final_formatting(CTR, display_options_CTR)
-        if len(VID) > 1:
-            final_formatting(VID, display_options_VID)
-        if len(IR) > 1:
-            final_formatting(IR, display_options_IR)
+    def create_chart_dataset(self):
+        metric_lookup = {
+            'DFP CTR': ('DFP Creative ID Clicks', 'DFP Creative ID Impressions'),
+            '3P CTR': ('3P Creative ID Clicks', '3P Creative ID Impressions'),
+            'Viewability': ('Ad server Active View viewable impressions', 'DFP Creative ID Impressions'),
+            'VSR': ('result_5', 'DFP Creative ID Impressions'),
+            'IR': ('int sessions','DFP Creative ID Impressions')
+        }
+
+        split_param = ' - * - '
+        AO = self.AO_multiple.value
+        creative_type = self.creative_type_dropdown.value
+        placement = self.placement_dropdown.value
+        metric = self.metric_measurement.value
+
+        rolling = 4
+        df = pd.DataFrame()
+
+        agg = self.df[(self.df['creative.type'] == creative_type) &
+                      (self.df['placement'] == placement)].groupby('Date').sum()
+        num = metric_lookup[metric][0]
+        dem = metric_lookup[metric][1]
+        agg = agg[[num, dem]]
+        agg = agg.rolling(rolling).sum()
+
+        agg[metric] = (agg[num] / agg[dem]) * 100
+        agg = agg[[metric]]
+        agg.columns = ['site']
+
+        for i in AO:
+            advert = i.split(split_param)[0]
+            order = i.split(split_param)[1]
+            sb1 = self.df['Advertiser'] == advert
+            sb2 = self.df['Order'] == order
+            sb3 = self.df['creative.type'] == creative_type
+            sb4 = self.df['placement'] == placement
+
+            dfx = self.df[(sb1) & (sb2) & (sb3) & ()]
+            dfx = dfx.groupby('Date').sum()
+            num = metric_lookup[metric][0]
+            dem = metric_lookup[metric][1]
+            dfx = dfx[[num, dem]]
+            dfx = dfx.rolling(rolling).sum()
+
+            dfx[metric] = (dfx[num] / dfx[dem]) * 100
+            dfx = dfx[[metric]]
+            dfx.columns = [advert]
+            if len(df) == 0:
+                df = dfx
+            else:
+                df = pd.merge(df, dfx, left_index=True, right_index=True, how='outer')
+
+        df = pd.merge(df, agg, left_index=True, right_index=True, how='outer')
+
+
+        dff = pd.DataFrame()
+        df = df.reset_index()
+
+        for col in df.columns:
+            if col != 'Date':
+                dfx = df[['Date', col]]
+                dfx['client'] = col
+                dfx.columns = ['Date', 'value', 'client']
+                dff = dff.append(dfx)
+        self.chart_dataset = dff
+
+
+    def graph_metrics(self):
+        from bokeh.plotting import figure, output_file, show
+        from bokeh.models import ColumnDataSource, HoverTool
+        from bokeh.io import output_notebook, push_notebook, show
+
+        dff['Date'] = pd.to_datetime(dff['Date'])
+
+        output_notebook()
+
+
+        hover = HoverTool(names=['circle'], tooltips=[
+            ("Date", "@Date"),
+            ("value", "$y"),
+            ("client", "@client"),
+        ])
+        TOOLS = [hover]
+
+        source = ColumnDataSource(dff)
+
+        p = figure(width=1500, height=700, x_axis_type="datetime", y_range=(0,round(int(dff['value'].max() * 1.10))), tools=TOOLS)
+        p.circle('Date', 'value', source=source, name='circle')
+
+        for client in set(dff['client']):
+            x1 = dff[dff['client'] == client]
+            my_plot = p.line(x1['Date'], x1['value'])
+
+
+        show(p)
+
+
