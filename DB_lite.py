@@ -781,13 +781,9 @@ class metric_explorer():
         x1 = self.df[(sb1) & (sb2) & (sb3)]
         self.AO_multiple.options = list(set(x1['advert_order']))
 
-    def print_button(self, change):
-        print('you pressed the button!')
-
     def display_dashboard(self):
         """
         display the metric explorer dashboard
-
         """
 
         self.site_dropdown.observe(self.update_AO_multiple, names='value')
@@ -799,7 +795,106 @@ class metric_explorer():
 
         return self.display
 
+    def print_button(self, change):
+        self.create_chart_dataset()
+        self.graph_metrics()
+        print('you pressed the button!')
+
+
+    def create_chart_dataset(self):
+        metric_lookup = {
+            'DFP CTR': ('DFP Creative ID Clicks', 'DFP Creative ID Impressions'),
+            '3P CTR': ('3P Creative ID Clicks', '3P Creative ID Impressions'),
+            'Viewability': ('Ad server Active View viewable impressions', 'DFP Creative ID Impressions'),
+            'VSR': ('result_5', 'DFP Creative ID Impressions'),
+            'IR': ('int sessions','DFP Creative ID Impressions')
+        }
+
+        split_param = ' - * - '
+        AO = self.AO_multiple.value
+        creative_type = self.creative_type_dropdown.value
+        placement = self.placement_dropdown.value
+        metric = self.metric_measurement.value
+
+        rolling = 4
+        df = pd.DataFrame()
+
+        agg = self.df[(self.df['creative.type'] == creative_type) &
+                      (self.df['placement'] == placement)].groupby('Date').sum()
+        num = metric_lookup[metric][0]
+        dem = metric_lookup[metric][1]
+        agg = agg[[num, dem]]
+        agg = agg.rolling(rolling).sum()
+
+        agg[metric] = (agg[num] / agg[dem]) * 100
+        agg = agg[[metric]]
+        agg.columns = ['site']
+
+        for i in AO:
+            advert = i.split(split_param)[0]
+            order = i.split(split_param)[1]
+            sb1 = self.df['Advertiser'] == advert
+            sb2 = self.df['Order'] == order
+            sb3 = self.df['creative.type'] == creative_type
+            sb4 = self.df['placement'] == placement
+
+            dfx = self.df[(sb1) & (sb2) & (sb3) & ()]
+            dfx = dfx.groupby('Date').sum()
+            num = metric_lookup[metric][0]
+            dem = metric_lookup[metric][1]
+            dfx = dfx[[num, dem]]
+            dfx = dfx.rolling(rolling).sum()
+
+            dfx[metric] = (dfx[num] / dfx[dem]) * 100
+            dfx = dfx[[metric]]
+            dfx.columns = [advert]
+            if len(df) == 0:
+                df = dfx
+            else:
+                df = pd.merge(df, dfx, left_index=True, right_index=True, how='outer')
+
+        df = pd.merge(df, agg, left_index=True, right_index=True, how='outer')
+
+
+        dff = pd.DataFrame()
+        df = df.reset_index()
+
+        for col in df.columns:
+            if col != 'Date':
+                dfx = df[['Date', col]]
+                dfx['client'] = col
+                dfx.columns = ['Date', 'value', 'client']
+                dff = dff.append(dfx)
+        self.chart_dataset = dff
+
+
     def graph_metrics(self):
-        pass
+        from bokeh.plotting import figure, output_file, show
+        from bokeh.models import ColumnDataSource, HoverTool
+        from bokeh.io import output_notebook, push_notebook, show
+
+        dff['Date'] = pd.to_datetime(dff['Date'])
+
+        output_notebook()
+
+
+        hover = HoverTool(names=['circle'], tooltips=[
+            ("Date", "@Date"),
+            ("value", "$y"),
+            ("client", "@client"),
+        ])
+        TOOLS = [hover]
+
+        source = ColumnDataSource(dff)
+
+        p = figure(width=1500, height=700, x_axis_type="datetime", y_range=(0,round(int(dff['value'].max() * 1.10))), tools=TOOLS)
+        p.circle('Date', 'value', source=source, name='circle')
+
+        for client in set(dff['client']):
+            x1 = dff[dff['client'] == client]
+            my_plot = p.line(x1['Date'], x1['value'])
+
+
+        show(p)
 
 
