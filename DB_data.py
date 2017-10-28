@@ -138,6 +138,27 @@ class API_calls():
             'url.domain',
             )
 
+        data = self.keen.count(event,
+                          timeframe=timeframe, interval=interval, timezone=timezone,
+                          group_by=group_by,
+                          filters=None)
+        return data
+
+    @API_log
+    def ad_impression(self, start, end, **kwargs):
+        event = 'ad_impression'
+        timeframe = {'start':start, 'end':end}
+        interval = 'every_72_hours'
+        timezone = None
+        group_by = (
+            'creative_placement.dfp.creative.id',
+            'creative_placement.dfp.line_item.id',
+            'creative_placement.device',
+            'creative.type',
+            'creative.name',
+            'parsed_page_url.domain',
+            'url.domain',
+            )
 
         data = self.keen.count(event,
                           timeframe=timeframe, interval=interval, timezone=timezone,
