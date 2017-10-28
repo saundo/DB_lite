@@ -525,23 +525,16 @@ class INT_calc():
 
 ################################## Creative types ##############################
 class creative_types():
-    def __init__(self, VID, INT):
-        self.VID = VID
-        self.INT = INT
-        self.KeyID_creative = ('creative.type', 'device', 'Creative ID', 'Line item ID')
-
-    def creative_type_lookup(self, df):
-        df = df.sort_values('Date', ascending=False)
-        dfx = df[~df[list(self.KeyID_creative)].duplicated()]
-        dfx = dfx[list(self.KeyID_creative)]
-        return dfx
+    def __init__(self, IMP):
+        self.IMP = IMP
+        self.KeyID_creative = ('creative.type', 'creative.name', 'device', 'Creative ID', 'Line item ID')
 
     def make_lookups(self):
-        VID = self.creative_type_lookup(self.VID)
-        INT = self.creative_type_lookup(self.INT)
-        dfx = VID.append(INT)
-        dfx = dfx[~dfx[['device', 'Creative ID', 'Line item ID']].duplicated()]
-        self.creative_lookup = dfx
+        df = self.IMP.sort_values('Date', ascending=False)
+        df = df[~df[list(KeyID_creative)].duplicated()]
+        df = df[list(KeyID_creative)]
+
+        self.creative_lookup = df
 
 ################################## Assemble ####################################
 class assemble():
