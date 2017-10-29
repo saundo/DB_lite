@@ -527,12 +527,18 @@ class INT_calc():
 class creative_types():
     def __init__(self, IMP):
         self.IMP = IMP
-        self.KeyID_creative = ('creative.type', 'creative.name', 'device', 'Creative ID', 'Line item ID')
+        self.KeyID_creative = (
+            'creative.type',
+            'creative.name',
+            'device',
+            'Creative ID',
+            'Line item ID'
+        )
 
     def make_lookups(self):
         df = self.IMP.sort_values('Date', ascending=False)
-        df = df[~df[list(KeyID_creative)].duplicated()]
-        df = df[list(KeyID_creative)]
+        df = df[~df[list(self.KeyID_creative)].duplicated()]
+        df = df[list(self.KeyID_creative)]
 
         self.creative_lookup = df
 
