@@ -62,8 +62,7 @@ class excel_exporter():
             'no match'
         )
 
-        if custom_tab is not None:
-            self.custom_tab = custom_tab
+        self.custom_tab = custom_tab
 
     def return_benchmark(self, KPI, placement, source):
         """
