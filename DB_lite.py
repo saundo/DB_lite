@@ -797,7 +797,9 @@ class metric_explorer():
         return self.display
 
     def print_button(self, change):
+        import IPython
         self.create_chart_dataset()
+        IPython.display.clear_output()
         self.graph_metrics()
         print('you pressed the button!')
 
@@ -839,7 +841,7 @@ class metric_explorer():
             sb3 = self.df['creative.type'] == creative_type
             sb4 = self.df['placement'] == placement
 
-            dfx = self.df[(sb1) & (sb2) & (sb3) & ()]
+            dfx = self.df[(sb1) & (sb2) & (sb3) & (sb4)]
             dfx = dfx.groupby('Date').sum()
             num = metric_lookup[metric][0]
             dem = metric_lookup[metric][1]
@@ -873,11 +875,10 @@ class metric_explorer():
         from bokeh.plotting import figure, output_file, show
         from bokeh.models import ColumnDataSource, HoverTool
         from bokeh.io import output_notebook, push_notebook, show
-
-        dff['Date'] = pd.to_datetime(dff['Date'])
-
+        from bokeh.palettes import Blues9
         output_notebook()
 
+        palette = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2", "#dfccce", "#ddb7b1", "#cc7878", "#933b41", "#550b1d"]
 
         hover = HoverTool(names=['circle'], tooltips=[
             ("Date", "@Date"),
@@ -886,15 +887,21 @@ class metric_explorer():
         ])
         TOOLS = [hover]
 
-        source = ColumnDataSource(dff)
+        source = ColumnDataSource(self.chart_dataset)
 
-        p = figure(width=1500, height=700, x_axis_type="datetime", y_range=(0,round(int(dff['value'].max() * 1.10))), tools=TOOLS)
+        p = figure(
+            width=1500,
+            height=700,
+            x_axis_type="datetime",
+            y_range=(0, self.chart_dataset['value'].max() * 1.10),
+            tools=TOOLS
+        )
+
         p.circle('Date', 'value', source=source, name='circle')
 
-        for client in set(dff['client']):
-            x1 = dff[dff['client'] == client]
-            my_plot = p.line(x1['Date'], x1['value'])
-
+        for i, client in enumerate(set(self.chart_dataset['client'])):
+            x1 = self.chart_dataset[self.chart_dataset['client'] == client]
+            my_plot = p.line(x1['Date'], x1['value'], color=palette[i])
 
         show(p)
 
