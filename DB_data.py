@@ -154,6 +154,7 @@ class API_calls():
             'creative_placement.dfp.creative.id',
             'creative_placement.dfp.line_item.id',
             'creative_placement.device',
+            'creative_placement.versions.this.name',
             'creative.type',
             'creative.name',
             'parsed_page_url.domain',
@@ -167,6 +168,17 @@ class API_calls():
         return data
 
 def unpack_keen(data):
+    """
+    unpacks keen data BUT ALSO renames some of the long ass names that keen uses
+        'date': 'Date',
+        'creative_placement.dfp.creative.id': 'Creative ID',
+        'creative_placement.dfp.line_item.id': 'Line item ID',
+        'creative_placement.device': 'device',
+        'user.cookie.session.id': 'cookie_s',
+        'interaction.name': 'interaction',
+        'user.ip_address':'ip_address',
+        'creative_placement.versions.this.name':'version'
+    """
     #parameter dictionary; DFP to conform with STAQ & easy language
     p_dict = {
         'date': 'Date',
@@ -175,7 +187,8 @@ def unpack_keen(data):
         'creative_placement.device': 'device',
         'user.cookie.session.id': 'cookie_s',
         'interaction.name': 'interaction',
-        'user.ip_address':'ip_address'
+        'user.ip_address':'ip_address',
+        'creative_placement.versions.this.name':'version',
         }
     s1 = []
     for key in data.keys():
@@ -532,13 +545,23 @@ class creative_types():
             'creative.name',
             'device',
             'Creative ID',
-            'Line item ID'
+            'Line item ID',
+            'version'
         )
 
     def make_lookups(self):
         df = self.IMP.sort_values('Date', ascending=False)
         df = df[~df[list(self.KeyID_creative)].duplicated()]
         df = df[list(self.KeyID_creative)]
+
+        df['version'] = df['version'].fillna('')
+        def version_scrub(x):
+            if isinstance(x, float):
+                return int(x)
+            else:
+                return x
+        df['version'] = df['version'].apply(version_scrub).astype(str)
+        df['creative.name.version'] = df['creative.name'] + '.' + df['version']
 
         self.creative_lookup = df
 
