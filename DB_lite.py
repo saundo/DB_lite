@@ -254,9 +254,10 @@ class excel_exporter():
                             'DFP VSR BM', 'DFP IR BM']
             },
             'creative': {
-                'groupby': ['site', 'placement', 'creative.name', 'creative.type'],
-                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', '3P VSR %',
-                            'VCR 75 %', 'DFP IR %', '3P IR %', 'DFP view %']
+                'groupby': ['site', 'placement', 'creative.name.version', 'creative.type'],
+                'display': ['DFP CTR %', '3P CTR %', 'DFP VSR %', 'DFP IR %',
+                            'DFP view %', 'DFP CTR BM', '3P CTR BM',
+                            'DFP VSR BM', 'DFP IR BM']
             },
             'line item': {
                 'groupby': ['site', 'Line item', 'creative.name', 'creative.type'],
@@ -366,23 +367,22 @@ class excel_exporter():
                 groupbys, as_index=False).sum()
             if len(self.wtd_prod) > 0:
                 self.wtd_prod = self.metric_calcs(self.wtd_prod)
-                # self.wtd_prod = self.apply_benchmarks(self.wtd_prod)
+                self.wtd_prod = self.apply_benchmarks(self.wtd_prod)
                 self.wtd_prod = self.trim_columns(self.wtd_prod)
                 self.write_excel(self.wtd_prod, row, colw)
-                # self.conditional_format(self.wtd_prod, row, colw)
+                self.conditional_format(self.wtd_prod, row, colw+1)
 
             self.ctd_prod = self.ctd[self.ctd['creative.type'] == self.creative_type].groupby(
                 groupbys, as_index=False).sum()
             if len(self.ctd_prod) > 0:
                 self.ctd_prod = self.metric_calcs(self.ctd_prod)
-                # self.ctd_prod = self.apply_benchmarks(self.ctd_prod)
+                self.ctd_prod = self.apply_benchmarks(self.ctd_prod)
                 self.ctd_prod = self.trim_columns(self.ctd_prod)
                 self.write_excel(self.ctd_prod, row, colc)
-                # self.conditional_format(self.ctd_prod, row, colc)
+                self.conditional_format(self.ctd_prod, row, colc+1)
 
             if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
                 row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
-
 
         ################ Line item tab ########################################
         self.tab = 'line item'
@@ -462,7 +462,7 @@ class dataframe_reducer():
             'Ad server Active View viewable impressions',
             'placement',
             'result_5', 'result_75', 'int sessions', 'interactions',
-            'creative.type', 'creative.name',
+            'creative.type', 'creative.name', 'creative.name.version',
             'adunit', 'site',
             'device']
 
