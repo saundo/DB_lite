@@ -905,4 +905,231 @@ class metric_explorer():
 
         show(p)
 
+################################## campaign metric explorer ####################
+class campaign_metric_explorer():
+    """
+    class for exploring metrics within the Dashboard_lite
+    """
+    def __init__(self, df):
+        """
+        + initialize class with dataframe
+        + initiatlive all ipywidgets
+        """
+        self.df = df
+        self.split_param = ' - * - '
 
+        self.creative_types = ('no match', 'traffic driver',
+            'interactive non video', 'branded driver', 'video',
+            'interactive video'
+        )
+
+        self.df['advert_order'] = self.df['Advertiser'] + self.split_param + self.df['Order']
+
+        self.AO_dropdown = ipywidgets.Dropdown(
+            options = sorted(set(self.df['advert_order'])),
+            value=list(sorted(set(self.df['advert_order'])))[0],
+            disabled=False
+        )
+
+        self.site_dropdown = ipywidgets.Dropdown(
+            options = ['qz', 'wrk', 'zty'],
+            value='qz',
+            disabled=False
+        )
+
+        self.placement_dropdown = ipywidgets.Dropdown(
+            options = ['engage mobile', 'engage desktop',
+                       'marquee mobile', 'marquee desktop',
+                       'inline mobile', 'inline desktop'],
+            value='engage mobile',
+            disabled=False
+        )
+
+        self.creative_type_dropdown = ipywidgets.Dropdown(
+            options=self.creative_types,
+            value=self.creative_types[0],
+            disabled=False
+        )
+
+        self.metric_measurement = ipywidgets.Dropdown(
+            options=['DFP CTR', '3P CTR', 'Viewability', 'VSR', 'IR'],
+            value='DFP CTR',
+            disabled=False
+        )
+
+        self.d1_DatePicker = ipywidgets.DatePicker(disabled=False)
+        self.d2_DatePicker = ipywidgets.DatePicker(disabled=False)
+
+        #CNV - creative.name.version
+        self.CNV_multiple = ipywidgets.SelectMultiple(
+            options=sorted(set(self.df['creative.name.version'].fillna('None'))),
+            value=[],
+            rows=3,
+            description='creative.name.version',
+            disabled=False,
+            layout=ipywidgets.Layout(width='50%', height='280px')
+        )
+
+        self.aggregate_checkbox = ipywidgets.Checkbox(
+            value=False,
+            description='Display aggregate',
+            disabled=False
+        )
+
+        self.button = ipywidgets.Button(description="CHART IT !",
+            layout=ipywidgets.Layout(width='100%', height='55px')
+        )
+
+        self.left_box = ipywidgets.VBox([
+            self.AO_dropdown, self.site_dropdown, self.placement_dropdown,
+            self.creative_type_dropdown, self.metric_measurement,
+            self.d1_DatePicker, self.d2_DatePicker,
+            self.aggregate_checkbox, self.button]
+        )
+
+        self.display = ipywidgets.HBox([self.left_box, self.CNV_multiple])
+
+    def update_CNV_multiple(self, change):
+        """
+        update advert_order multiple select widget
+        sb -> series Boolean
+        """
+        sb1 = self.df['site'] == self.site_dropdown.value
+        sb2 = self.df['placement'] == self.placement_dropdown.value
+        advert_order = self.AO_dropdown.value.split(self.split_param)
+        sb3 = self.df['Advertiser'] == advert_order[0]
+        sb4 = self.df['Order'] == advert_order[1]
+        sb5 = self.df['creative.type'] == self.creative_type_dropdown.value
+
+        x1 = self.df[(sb1) & (sb2) & (sb3) & (sb4) & (sb5)]
+        self.CNV_multiple.options = (['all'] +
+            list(sorted(set(x1['creative.name.version'].fillna('None')))))
+
+    def display_dashboard(self):
+        """
+        display the metric explorer dashboard
+        """
+
+        self.AO_dropdown.observe(self.update_CNV_multiple, names='value')
+        self.placement_dropdown.observe(self.update_CNV_multiple, names='value')
+        self.creative_type_dropdown.observe(self.update_CNV_multiple, names='value')
+        #self.metric_measurement.observe(update_AO_multiple, names='value')
+
+        self.button.on_click(self.print_button)
+
+        return self.display
+
+    def print_button(self, change):
+        import IPython
+        self.create_chart_dataset()
+        # IPython.display.clear_output()
+        self.graph_metrics()
+        print('you pressed the button!')
+
+
+    def create_chart_dataset(self):
+        metric_lookup = {
+            'DFP CTR': ('DFP Creative ID Clicks', 'DFP Creative ID Impressions'),
+            '3P CTR': ('3P Creative ID Clicks', '3P Creative ID Impressions'),
+            'Viewability': ('Ad server Active View viewable impressions', 'DFP Creative ID Impressions'),
+            'VSR': ('result_5', 'DFP Creative ID Impressions'),
+            'IR': ('int sessions','DFP Creative ID Impressions')
+        }
+
+
+
+
+        creative_type = self.creative_type_dropdown.value
+        placement = self.placement_dropdown.value
+        metric = self.metric_measurement.value
+
+        rolling = 4
+        df = pd.DataFrame()
+
+        agg = self.df[(self.df['creative.type'] == creative_type) &
+                      (self.df['placement'] == placement)].groupby('Date').sum()
+        num = metric_lookup[metric][0]
+        dem = metric_lookup[metric][1]
+        agg = agg[[num, dem]]
+        agg = agg.rolling(rolling).sum()
+
+        agg[metric] = (agg[num] / agg[dem]) * 100
+        agg = agg[[metric]]
+        agg.columns = ['site']
+
+
+        AO = self.AO_dropdown.value
+        advert = AO.split(self.split_param)[0]
+        order = AO.split(self.split_param)[1]
+        CNV_multiple = self.CNV_multiple.value
+
+        for CNV in CNV_multiple:
+            sb1 = self.df['Advertiser'] == advert
+            sb2 = self.df['Order'] == order
+            sb3 = self.df['creative.type'] == creative_type
+            sb4 = self.df['placement'] == placement
+            sb5 = self.df['creative.name.version'] == CNV
+
+            dfx = self.df[(sb1) & (sb2) & (sb3) & (sb4) & (sb5)]
+            dfx = dfx.groupby('Date').sum()
+            num = metric_lookup[metric][0]
+            dem = metric_lookup[metric][1]
+            dfx = dfx[[num, dem]]
+            dfx = dfx.rolling(rolling).sum()
+
+            dfx[metric] = (dfx[num] / dfx[dem]) * 100
+            dfx = dfx[[metric]]
+            dfx.columns = [CNV]
+            if len(df) == 0:
+                df = dfx
+            else:
+                df = pd.merge(df, dfx, left_index=True, right_index=True, how='outer')
+
+        df = pd.merge(df, agg, left_index=True, right_index=True, how='outer')
+
+
+        dff = pd.DataFrame()
+        self.testdf = df.reset_index()
+
+        for col in self.testdf.columns:
+            if col != 'Date':
+                dfx = self.testdf[['Date', col]]
+                dfx['client'] = col
+                dfx.columns = ['Date', 'value', 'client']
+                dff = dff.append(dfx)
+        self.chart_dataset = dff
+
+
+    def graph_metrics(self):
+        from bokeh.plotting import figure, output_file, show
+        from bokeh.models import ColumnDataSource, HoverTool
+        from bokeh.io import output_notebook, push_notebook, show
+        from bokeh.palettes import Blues9
+        output_notebook()
+
+        palette = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2", "#dfccce", "#ddb7b1", "#cc7878", "#933b41", "#550b1d"]
+
+        hover = HoverTool(names=['circle'], tooltips=[
+            ("Date", "@Date"),
+            ("value", "$y"),
+            ("client", "@client"),
+        ])
+        TOOLS = [hover]
+
+        source = ColumnDataSource(self.chart_dataset)
+
+        p = figure(
+            width=1500,
+            height=700,
+            x_axis_type="datetime",
+            y_range=(0, self.chart_dataset['value'].max() * 1.10),
+            tools=TOOLS
+        )
+
+        p.circle('Date', 'value', source=source, name='circle')
+
+        for i, client in enumerate(set(self.chart_dataset['client'])):
+            x1 = self.chart_dataset[self.chart_dataset['client'] == client]
+            my_plot = p.line(x1['Date'], x1['value'], color=palette[i])
+
+        show(p)
