@@ -799,7 +799,7 @@ class metric_explorer():
     def print_button(self, change):
         import IPython
         self.create_chart_dataset()
-        IPython.display.clear_output()
+        # IPython.display.clear_output()
         self.graph_metrics()
         print('you pressed the button!')
 
@@ -918,9 +918,9 @@ class campaign_metric_explorer():
         self.df = df
         self.split_param = ' - * - '
 
-        self.creative_types = ('no match', 'traffic driver',
+        self.creative_types = ('traffic driver',
             'interactive non video', 'branded driver', 'video',
-            'interactive video'
+            'interactive video', 'no match'
         )
 
         self.df['advert_order'] = self.df['Advertiser'] + self.split_param + self.df['Order']
@@ -1046,16 +1046,6 @@ class campaign_metric_explorer():
         rolling = 4
         df = pd.DataFrame()
 
-        agg = self.df[(self.df['creative.type'] == creative_type) &
-                      (self.df['placement'] == placement)].groupby('Date').sum()
-        num = metric_lookup[metric][0]
-        dem = metric_lookup[metric][1]
-        agg = agg[[num, dem]]
-        agg = agg.rolling(rolling).sum()
-
-        agg[metric] = (agg[num] / agg[dem]) * 100
-        agg = agg[[metric]]
-        agg.columns = ['site']
 
 
         AO = self.AO_dropdown.value
@@ -1063,6 +1053,7 @@ class campaign_metric_explorer():
         order = AO.split(self.split_param)[1]
         CNV_multiple = self.CNV_multiple.value
 
+        cumulative_store = []
         for CNV in CNV_multiple:
             sb1 = self.df['Advertiser'] == advert
             sb2 = self.df['Order'] == order
@@ -1071,6 +1062,9 @@ class campaign_metric_explorer():
             sb5 = self.df['creative.name.version'] == CNV
 
             dfx = self.df[(sb1) & (sb2) & (sb3) & (sb4) & (sb5)]
+            cumulative_store.append(dfx)
+            min_date = dfx['Date'].min() - datetime.timedelta(days=5)
+            max_date = dfx['Date'].max() + datetime.timedelta(days=5)
             dfx = dfx.groupby('Date').sum()
             num = metric_lookup[metric][0]
             dem = metric_lookup[metric][1]
@@ -1085,7 +1079,28 @@ class campaign_metric_explorer():
             else:
                 df = pd.merge(df, dfx, left_index=True, right_index=True, how='outer')
 
+        agg = self.df[(self.df['creative.type'] == creative_type) &
+                      (self.df['placement'] == placement) &
+                      (self.df['Date'] >= min_date) &
+                      (self.df['Date'] <= max_date)].groupby('Date').sum()
+        num = metric_lookup[metric][0]
+        dem = metric_lookup[metric][1]
+        agg = agg[[num, dem]]
+        agg = agg.rolling(rolling).sum()
+
+        agg[metric] = (agg[num] / agg[dem]) * 100
+        agg = agg[[metric]]
+        agg.columns = ['site']
+
+        zz = pd.concat(cumulative_store)
+        zz = zz.groupby('Date').sum()
+        zz['cumulative dem'] = zz[dem].cumsum()
+        zz['cumulative num'] = zz[num].cumsum()
+        zz['cumulative'] = (zz['cumulative num'] / zz['cumulative dem']) * 100
+
         df = pd.merge(df, agg, left_index=True, right_index=True, how='outer')
+        df = pd.merge(df, zz[['cumulative']], left_index=True, right_index=True, how='outer')
+
 
 
         dff = pd.DataFrame()
@@ -1130,6 +1145,11 @@ class campaign_metric_explorer():
 
         for i, client in enumerate(set(self.chart_dataset['client'])):
             x1 = self.chart_dataset[self.chart_dataset['client'] == client]
-            my_plot = p.line(x1['Date'], x1['value'], color=palette[i])
+            if client == 'site':
+                my_plot = p.line(x1['Date'], x1['value'], color='#000000')
+            elif client == 'cumulative':
+                my_plot = p.line(x1['Date'], x1['value'], color='#FF0000')
+            else:
+                my_plot = p.line(x1['Date'], x1['value'], color=palette[i])
 
         show(p)
