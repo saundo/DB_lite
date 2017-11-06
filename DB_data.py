@@ -138,6 +138,28 @@ class API_calls():
             'url.domain',
             )
 
+        data = self.keen.count(event,
+                          timeframe=timeframe, interval=interval, timezone=timezone,
+                          group_by=group_by,
+                          filters=None)
+        return data
+
+    @API_log
+    def ad_impression(self, start, end, **kwargs):
+        event = 'ad_impression'
+        timeframe = {'start':start, 'end':end}
+        interval = 'every_72_hours'
+        timezone = None
+        group_by = (
+            'creative_placement.dfp.creative.id',
+            'creative_placement.dfp.line_item.id',
+            'creative_placement.device',
+            'creative_placement.versions.this.name',
+            'creative.type',
+            'creative.name',
+            'parsed_page_url.domain',
+            'url.domain',
+            )
 
         data = self.keen.count(event,
                           timeframe=timeframe, interval=interval, timezone=timezone,
@@ -146,6 +168,17 @@ class API_calls():
         return data
 
 def unpack_keen(data):
+    """
+    unpacks keen data BUT ALSO renames some of the long ass names that keen uses
+        'date': 'Date',
+        'creative_placement.dfp.creative.id': 'Creative ID',
+        'creative_placement.dfp.line_item.id': 'Line item ID',
+        'creative_placement.device': 'device',
+        'user.cookie.session.id': 'cookie_s',
+        'interaction.name': 'interaction',
+        'user.ip_address':'ip_address',
+        'creative_placement.versions.this.name':'version'
+    """
     #parameter dictionary; DFP to conform with STAQ & easy language
     p_dict = {
         'date': 'Date',
@@ -154,7 +187,8 @@ def unpack_keen(data):
         'creative_placement.device': 'device',
         'user.cookie.session.id': 'cookie_s',
         'interaction.name': 'interaction',
-        'user.ip_address':'ip_address'
+        'user.ip_address':'ip_address',
+        'creative_placement.versions.this.name':'version',
         }
     s1 = []
     for key in data.keys():
@@ -504,23 +538,32 @@ class INT_calc():
 
 ################################## Creative types ##############################
 class creative_types():
-    def __init__(self, VID, INT):
-        self.VID = VID
-        self.INT = INT
-        self.KeyID_creative = ('creative.type', 'device', 'Creative ID', 'Line item ID')
-
-    def creative_type_lookup(self, df):
-        df = df.sort_values('Date', ascending=False)
-        dfx = df[~df[list(self.KeyID_creative)].duplicated()]
-        dfx = dfx[list(self.KeyID_creative)]
-        return dfx
+    def __init__(self, IMP):
+        self.IMP = IMP
+        self.KeyID_creative = (
+            'creative.type',
+            'creative.name',
+            'device',
+            'Creative ID',
+            'Line item ID',
+            'version'
+        )
 
     def make_lookups(self):
-        VID = self.creative_type_lookup(self.VID)
-        INT = self.creative_type_lookup(self.INT)
-        dfx = VID.append(INT)
-        dfx = dfx[~dfx[['device', 'Creative ID', 'Line item ID']].duplicated()]
-        self.creative_lookup = dfx
+        df = self.IMP.sort_values('Date', ascending=False)
+        df = df[~df[list(self.KeyID_creative)].duplicated()]
+        df = df[list(self.KeyID_creative)]
+
+        df['version'] = df['version'].fillna('')
+        def version_scrub(x):
+            if isinstance(x, float):
+                return int(x)
+            else:
+                return x
+        df['version'] = df['version'].apply(version_scrub).astype(str)
+        df['creative.name.version'] = df['creative.name'] + '.' + df['version']
+
+        self.creative_lookup = df
 
 ################################## Assemble ####################################
 class assemble():
