@@ -708,9 +708,9 @@ class metric_explorer():
 
         self.df['advert_order'] = self.df['Advertiser'] + self.split_param + self.df['Order']
 
-        self.creative_types = ('no match', 'traffic driver',
+        self.creative_types = ('traffic driver',
             'interactive non video', 'branded driver', 'video',
-            'interactive video'
+            'interactive video', 'no match'
         )
 
         self.AO_multiple = ipywidgets.SelectMultiple(
@@ -803,7 +803,6 @@ class metric_explorer():
         self.graph_metrics()
         print('you pressed the button!')
 
-
     def create_chart_dataset(self):
         metric_lookup = {
             'DFP CTR': ('DFP Creative ID Clicks', 'DFP Creative ID Impressions'),
@@ -870,7 +869,6 @@ class metric_explorer():
                 dff = dff.append(dfx)
         self.chart_dataset = dff
 
-
     def graph_metrics(self):
         from bokeh.plotting import figure, output_file, show
         from bokeh.models import ColumnDataSource, HoverTool
@@ -901,8 +899,11 @@ class metric_explorer():
 
         for i, client in enumerate(set(self.chart_dataset['client'])):
             x1 = self.chart_dataset[self.chart_dataset['client'] == client]
-            my_plot = p.line(x1['Date'], x1['value'], color=palette[i])
-
+            if client == 'site':
+                my_plot = p.line(x1['Date'], x1['value'], color='#000000',
+                    line_width=2)
+            else:
+                my_plot = p.line(x1['Date'], x1['value'], color=palette[i])
         show(p)
 
 ################################## campaign metric explorer ####################
@@ -1146,9 +1147,11 @@ class campaign_metric_explorer():
         for i, client in enumerate(set(self.chart_dataset['client'])):
             x1 = self.chart_dataset[self.chart_dataset['client'] == client]
             if client == 'site':
-                my_plot = p.line(x1['Date'], x1['value'], color='#000000')
+                my_plot = p.line(x1['Date'], x1['value'], color='#000000',
+                    line_width=2)
             elif client == 'cumulative':
-                my_plot = p.line(x1['Date'], x1['value'], color='#FF0000')
+                my_plot = p.line(x1['Date'], x1['value'], color='#FF0000',
+                    line_width=2)
             else:
                 my_plot = p.line(x1['Date'], x1['value'], color=palette[i])
 
