@@ -157,6 +157,8 @@ class API_calls():
             'creative_placement.versions.this.name',
             'creative.type',
             'creative.name',
+            'creative.context',
+            'creative.value',
             'parsed_page_url.domain',
             'url.domain',
             )
@@ -272,8 +274,10 @@ class STAQ_prep():
             'email-content':'oth',
             'flash-brief': 'oth',
             'iphone_test':'oth',
-            'newsstand':'Google News ads'
+            'newsstand':'Google News ads',
+            'qztest':'qztest'
         }
+
         try:
             self.STAQ['site'] = self.STAQ['Ad unit'].apply(lambda x: site_lookup[x])
         except:
@@ -387,14 +391,27 @@ class VID_calc():
             param = 'video.progress.percent_viewed'
             v5 = df[df[param] == 5]
             v75 = df[df[param] == 75]
+            v90 = df[df[param] == 90]
+            v100 = df[df[param] == 100]
             cols = KeyID_session + ['result']
 
             v5_75_session = pd.merge(v5[cols], v75[cols],
                 on=KeyID_session, how='outer')
             v5_75_views = v5_75_session.groupby(self.KeyID, as_index=False).sum()
-            v5_75_views.columns = ['Date', 'Creative ID', 'Line item ID', 'device', 'result_5', 'result_75']
-            v5_75_views['Date'] = pd.to_datetime(v5_75_views['Date'])
-            return v5_75_views
+            v5_75_views.columns = ['Date', 'Creative ID', 'Line item ID',
+                                   'device', 'result_5', 'result_75']
+
+            v90_100_session = pd.merge(v90[cols], v100[cols],
+                on=KeyID_session, how='outer')
+            v90_100_views = v90_100_session.groupby(self.KeyID, as_index=False).sum()
+            v90_100_views.columns = ['Date', 'Creative ID', 'Line item ID',
+                                     'device', 'result_90', 'result_100']
+
+            vid_views = pd.merge(v5_75_views, v90_100_views, on=self.KeyID, how='outer')
+
+            self.tester = vid_views
+            vid_views['Date'] = pd.to_datetime(vid_views['Date'])
+            return vid_views
 
         self.VID_qz_views = wrangling(self.VID_qz)
         self.VID_wrk_views = wrangling(self.VID_wrk,
