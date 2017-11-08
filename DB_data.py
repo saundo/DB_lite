@@ -310,6 +310,8 @@ class STAQ_prep():
                 return 'Video sponsor unit'
             if x == '600 x 430':
                 return 'legacy engage mobile'
+            if x == 'Out-of-page':
+                return 'Out-of-page'
             try:
                 return placement_size_to_name[x]
             except:
@@ -318,6 +320,7 @@ class STAQ_prep():
         self.STAQ_qz = self.STAQ[self.STAQ['site'] == 'qz'].copy()
         self.STAQ_qz['placement'] = self.STAQ_qz['Creative size'].apply(placement_logic)
         self.STAQ_qz['device'] = self.STAQ_qz['Device category'].apply(lambda x: self.device_lookup[x])
+
 
     def apply_placement_names_wrk(self):
         """
@@ -331,7 +334,7 @@ class STAQ_prep():
             '1600 x 521': 'engage',
             '640 x 363': 'inline',
             '1 x 1': 'spotlight',
-            'Out-of-page': 'oop'
+            'Out-of-page': 'ICP'
         }
 
         self.STAQ_wrk = self.STAQ[self.STAQ['site'] == 'wrk'].copy()
