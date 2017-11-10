@@ -192,6 +192,7 @@ def unpack_keen(data):
         'user.ip_address':'ip_address',
         'creative_placement.versions.this.name':'version',
         }
+
     s1 = []
     for key in data.keys():
         for d1 in data[key]:
@@ -208,12 +209,17 @@ def unpack_keen(data):
 
     df = df.rename(index=str, columns=p_dict)
 
+    anomalies = df[df['Creative ID'] == str('%ecid!')][[
+        'creative.type', 'device', 'Creative ID', 'parsed_page_url.domain',
+        'url.domain']]
+
     # check for weird results  --> verify with Apostolis
     dfx = df[df['Creative ID'] != str('%ecid!')].copy()
     dfx['Creative ID'] = dfx['Creative ID'].astype(int)
     dfx['Line item ID'] = dfx['Line item ID'].astype(int)
     print('unpacked')
     print((len(df) - len(dfx)), ' rows with anomalies')
+    print(anomalies)
     return dfx
 
 ################################## STAQ ########################################
@@ -250,6 +256,12 @@ class STAQ_prep():
         }
         print(np.shape(self.STAQ))
 
+        # report and remove UNKNOWN devices
+        unknown_devices = self.STAQ[self.STAQ['Device category'] == 'UNKNOWN']
+        print('unkown device rows', len(unknown_devices))
+        print('unknown device impression', unknown_devices['DFP Creative ID Impressions'].sum())
+        self.STAQ = self.STAQ[self.STAQ['Device category'] != 'UNKNOWN']
+
     def clean_numbers(self):
         """
         ensure the STAQ columns are integers
@@ -269,6 +281,7 @@ class STAQ_prep():
             'iPhone_app':'iphone',
             'qz':'qz',
             'work':'wrk',
+            'quartzy': 'zty',
             'email-card':'oth',
             'email-logo':'oth',
             'email-content':'oth',
@@ -325,7 +338,7 @@ class STAQ_prep():
     def apply_placement_names_wrk(self):
         """
         match placement name to the placement sizes; along with other logic
-        WILL NEED TO REVIST AFTER QUARTZ at WORK
+
         """
         #qz
 
@@ -344,12 +357,35 @@ class STAQ_prep():
         self.STAQ_wrk['placement'] = self.STAQ_wrk['adunit'] + ' ' + self.STAQ_wrk['device']
         del self.STAQ_wrk['adunit']
 
+    def apply_placement_names_zty(self):
+        """
+        match placement name to the placement sizes; along with other logic
+        WILL NEED TO REVIST AFTER QUARTZ at WORK
+        """
+        #qz
+
+        creative_size_lookup = {
+            '1600 x 520': 'marquee',
+            '1600 x 521': 'engage',
+            '640 x 363': 'inline',
+            '1 x 1': 'spotlight',
+            'Out-of-page': 'ICP'
+        }
+
+        self.STAQ_zty = self.STAQ[self.STAQ['site'] == 'zty'].copy()
+
+        self.STAQ_zty['adunit'] = self.STAQ_zty['Creative size'].apply(lambda x: creative_size_lookup[x])
+        self.STAQ_zty['device'] = self.STAQ_zty['Device category'].apply(lambda x: self.device_lookup[x])
+        self.STAQ_zty['placement'] = self.STAQ_zty['adunit'] + ' ' + self.STAQ_zty['device']
+        del self.STAQ_zty['adunit']
+
     def compile(self):
         # need to do something with this raw, as it contains sites other than
         # qz and wrk --> see site_lookup
         self.STAQ_raw = self.STAQ
 
         self.STAQ = self.STAQ_qz.append(self.STAQ_wrk)
+        self.STAQ = self.STAQ.append(self.STAQ_zty)
         self.STAQ = self.STAQ[self.STAQ_cols['categories'] + self.STAQ_cols['values']]
 
         #combine duplicate mobile devices (smartphone and feature phone)
@@ -370,7 +406,7 @@ class VID_calc():
 
     def split_into_sites(self):
         sp_logic = {
-            'parsed_page_url.domain':'work.qz.com',
+            'parsed_page_url.domain':('work.qz.com', 'quartzy.qz.com'),
             'url.domain':'qz.com'
             }
 
@@ -386,7 +422,12 @@ class VID_calc():
 
         #wrk
         x = 'parsed_page_url.domain'
-        self.VID_wrk = self.VID[self.VID[x] == sp_logic[x]].copy()
+        self.VID_wrk = self.VID[self.VID[x] == sp_logic[x][0]].copy()
+
+        #zty
+        x = 'parsed_page_url.domain'
+        self.VID_zty = self.VID[self.VID[x] == sp_logic[x][1]].copy()
+
 
     def wrangle_vid(self):
         def wrangling(df, session_key='cookie_s'):
@@ -419,7 +460,9 @@ class VID_calc():
         self.VID_qz_views = wrangling(self.VID_qz)
         self.VID_wrk_views = wrangling(self.VID_wrk,
             session_key='ip_address')
-        #zty #### TK
+        self.VID_zty_views = wrangling(self.VID_zty,
+            session_key='ip_address')
+
         print('vid wrangled!')
 
 ################################## IR ##########################################
@@ -479,7 +522,7 @@ class INT_calc():
 
     def split_into_sites(self):
         sp_logic = {
-            'parsed_page_url.domain':'work.qz.com',
+            'parsed_page_url.domain':('work.qz.com', 'quartzy.qz.com'),
             'url.domain':'qz.com'
             }
         # qz
@@ -489,11 +532,13 @@ class INT_calc():
 
         #wrk
         x = 'parsed_page_url.domain'
-        self.VID_wrk = self.VID[self.VID[x] == sp_logic[x]].copy()
-        self.INT_wrk = self.INT[self.INT[x] == sp_logic[x]].copy()
+        self.VID_wrk = self.VID[self.VID[x] == sp_logic[x][0]].copy()
+        self.INT_wrk = self.INT[self.INT[x] == sp_logic[x][0]].copy()
 
         #zty
-        #### TK
+        x = 'parsed_page_url.domain'
+        self.VID_zty = self.VID[self.VID[x] == sp_logic[x][1]].copy()
+        self.INT_zty = self.INT[self.INT[x] == sp_logic[x][1]].copy()
 
     def wrangle_vid(self):
         """
@@ -513,6 +558,8 @@ class INT_calc():
         self.VID_qz_session = wrangling(self.VID_qz)
         self.VID_wrk_session= wrangling(self.VID_wrk,
             session_key='ip_address')
+        self.VID_zty_session= wrangling(self.VID_zty,
+            session_key='ip_address')
         print('vid & int wrangled!')
 
     def wrangle_int(self):
@@ -521,6 +568,7 @@ class INT_calc():
         self.filter_kwargs = {'interaction.target':'external'}
         self.INT_qz = self.filter_module(self.INT_qz, **self.filter_kwargs)
         self.INT_wrk = self.filter_module(self.INT_wrk, **self.filter_kwargs)
+        self.INT_zty = self.filter_module(self.INT_zty, **self.filter_kwargs)
 
         #qz
         KeyID_session = list(self.KeyID) + ['cookie_s']
@@ -529,6 +577,10 @@ class INT_calc():
         #wrk
         KeyID_session = list(self.KeyID) + ['ip_address']
         self.INT_wrk = self.INT_wrk.groupby(KeyID_session, as_index=False).sum()
+
+        #wrk
+        KeyID_session = list(self.KeyID) + ['ip_address']
+        self.INT_zty = self.INT_zty.groupby(KeyID_session, as_index=False).sum()
 
     def combine_vid_int(self):
         """
@@ -554,6 +606,11 @@ class INT_calc():
         #wrk
         KeyID_session = list(self.KeyID) + ['ip_address']
         self.INT_ses_wrk = merge_it(self.VID_wrk_session, self.INT_wrk,
+            KeyID_session, 'outer')
+
+        #zty
+        KeyID_session = list(self.KeyID) + ['ip_address']
+        self.INT_ses_zty = merge_it(self.VID_zty_session, self.INT_zty,
             KeyID_session, 'outer')
 
 ################################## Creative types ##############################
@@ -629,16 +686,28 @@ class assemble():
         print(np.shape(df3))
         print(np.shape(df_wrk))
 
-    def assemble_zty(self):
+    def assemble_zty(self, STAQ_zty, VID_zty, IR_zty):
         """
         STAQ_zty
         VID_zty
         IR_zty
         """
-        pass
+        KeyID = ('Date', 'Creative ID', 'Line item ID', 'device')
+
+        df1 = STAQ_zty
+        df2 = VID_zty.fillna(0)
+        df_zty = pd.merge(df1, df2, on=KeyID, how='left')
+
+        df3 = IR_zty.fillna(0)
+        self.df_zty = pd.merge(df_zty, df3, on=KeyID, how='left')
+        print(np.shape(df1))
+        print(np.shape(df2))
+        print(np.shape(df3))
+        print(np.shape(df_zty))
 
     def assemble_all(self):
         self.df = self.df_qz.append(self.df_wrk)
+        self.df = self.df.append(self.df_zty)
         print(np.shape(self.df))
         self.df_master = pd.merge(self.df, self.creative_lookup,
             on=('Creative ID', 'Line item ID', 'device'), how='left')
