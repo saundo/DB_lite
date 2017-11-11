@@ -613,6 +613,99 @@ class INT_calc():
         self.INT_ses_zty = merge_it(self.VID_zty_session, self.INT_zty,
             KeyID_session, 'outer')
 
+################################## Interactions ################################
+class INT_process():
+    def __init__(self, data):
+        """
+        """
+        self.data = data
+
+        # on what to group by - prob don't need creative.type since that is
+        # implicit in the Creative ID / Line item ID alignment
+        self.groupings = ['creative.type',
+                          'device',
+                          'Creative ID',
+                          'Line item ID',
+                          'interaction',
+                          'interaction.target',
+                          'Date']
+
+    def split_into_sites(self):
+        """splie input dataframe into relevant sites"""
+        sp_logic = {
+            'parsed_page_url.domain':('work.qz.com', 'quartzy.qz.com'),
+            'url.domain':'qz.com'
+            }
+
+        if ('work.qz.com' in set(self.data['url.domain']) or
+            'quartzy.qz.com' in set(self.data['url.domain'])):
+            raise ValueError('uhoh - Apostolis did something without telling us!'
+                             'it looks like he updated the url.domain to include'
+                             'to include quartz at work')
+
+        # qz
+        x = 'url.domain'
+        self.INT_qz = self.data[self.data[x] == sp_logic[x]].copy()
+
+        #wrk
+        x = 'parsed_page_url.domain'
+        self.INT_wrk = self.data[self.data[x] == sp_logic[x][0]].copy()
+
+        #zty
+        x = 'parsed_page_url.domain'
+        self.INT_zty = self.data[self.data[x] == sp_logic[x][1]].copy()
+
+
+    def count_ints(self, df):
+        """group and sum number of interactions"""
+        df = df.groupby(self.groupings, as_index=False)['result'].sum()
+        df = df.sort_values('result',ascending=False)
+        df = df.rename(columns={'result':'interactions'})
+        return df
+
+    def unique_ints(self, df, unique_key='cookie_s'):
+        """unique count based upon unique_key
+        unique_key = 'cookie_s' if from qz.com
+        unique_key = 'ip_address' if from wrk or zty
+        """
+        df = df.groupby(self.groupings)[unique_key].nunique()
+        df = df.reset_index()
+        df = df.rename(columns={unique_key:'uniques'})
+        df = df.sort_values('uniques',ascending=False)
+        return df
+
+    def merge_ints(self, df1, df2):
+        """inner merge input dataframes on groupings"""
+        df = pd.merge(df1, df2, on=self.groupings, how='inner')
+        return df
+
+    def munge_ints(self):
+        """
+        + run all methods: count, uniques, merge
+        + allocate sites to each dataframe
+        + concat all site specific dataframes
+        """
+        self.INT_qz_count = self.count_ints(self.INT_qz)
+        self.INT_wrk_count = self.count_ints(self.INT_wrk)
+        self.INT_zty_count = self.count_ints(self.INT_zty)
+
+        self.INT_qz_unique = self.unique_ints(self.INT_qz,
+                                              unique_key='cookie_s')
+        self.INT_wrk_unique = self.unique_ints(self.INT_wrk,
+                                               unique_key='ip_address')
+        self.INT_zty_unique = self.unique_ints(self.INT_zty,
+                                               unique_key='ip_address')
+
+        self.INT_qz = self.merge_ints(self.INT_qz_count, self.INT_qz_unique)
+        self.INT_qz['site'] = 'qz'
+
+        self.INT_wrk = self.merge_ints(self.INT_wrk_count, self.INT_wrk_unique)
+        self.INT_wrk['site'] = 'wrk'
+
+        self.INT_zty = self.merge_ints(self.INT_zty_count, self.INT_zty_unique)
+        self.INT_zty['site'] = 'zty'
+
+        self.INT_all = pd.concat([self.INT_qz, self.INT_wrk, self.INT_zty])
 ################################## Creative types ##############################
 class creative_types():
     def __init__(self, IMP):
