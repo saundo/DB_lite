@@ -615,8 +615,13 @@ class INT_calc():
 
 ################################## Interactions ################################
 class INT_process():
+    """
+    pulls in raw Keen interaction data, splits into sites, and organizes it
+    into count of interactions and unique interactions
+    """
     def __init__(self, data):
         """
+        constructs class on data, establishes the grouping parameters
         """
         self.data = data
 
@@ -654,7 +659,6 @@ class INT_process():
         #zty
         x = 'parsed_page_url.domain'
         self.INT_zty = self.data[self.data[x] == sp_logic[x][1]].copy()
-
 
     def count_ints(self, df):
         """group and sum number of interactions"""
@@ -706,6 +710,7 @@ class INT_process():
         self.INT_zty['site'] = 'zty'
 
         self.INT_all = pd.concat([self.INT_qz, self.INT_wrk, self.INT_zty])
+
 ################################## Creative types ##############################
 class creative_types():
     def __init__(self, IMP):
