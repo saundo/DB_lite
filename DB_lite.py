@@ -181,7 +181,7 @@ class excel_exporter():
         df.to_excel(self.writer, index=False, sheet_name=self.tab,
             startrow=row, startcol=col)
 
-    def conditional_format(self, df, row, col):
+    def conditional_format(self, df, row, col, side='wtd'):
         """
         """
         def paint_it(col, KPI, source):
@@ -189,32 +189,24 @@ class excel_exporter():
             applies the format by looping over placement
             """
             for i in range(len(df)):
+                if side == 'wtd':
+                    value_col = col
+                else:
+                    value_col = col - 15
+
                 placement = df.iloc[i]['placement']
-                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
-                    {'type': 'cell',
-                    'criteria': 'less than',
-                    'value': self.return_benchmark(KPI, placement, source) * 0.75,
-                    'format': self.f_red_dark})
+                value = df.iloc[i, value_col]
 
-                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
-                    {'type': 'cell',
-                    'criteria': 'between',
-                    'minimum': self.return_benchmark(KPI, placement, source) * 0.75,
-                    'maximum': self.return_benchmark(KPI, placement, source),
-                    'format': self.f_red_light})
+                bm = self.return_benchmark(KPI, placement, source)
 
-                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
-                    {'type': 'cell',
-                    'criteria': 'between',
-                    'minimum': self.return_benchmark(KPI, placement, source),
-                    'maximum': self.return_benchmark(KPI, placement, source) * 1.25,
-                    'format': self.f_green_light})
-
-                self.worksheet.conditional_format(row+1+i, col, row+1+i, col,
-                    {'type': 'cell',
-                    'criteria': 'greater than',
-                    'value': self.return_benchmark(KPI, placement, source) * 1.25,
-                    'format': self.f_green_dark})
+                if value < (bm * 0.75):
+                    self.worksheet.write(row+i+1, col, round(value,2), self.f_red_dark)
+                elif value >= (bm * 0.75) and value < bm:
+                    self.worksheet.write(row+i+1, col, round(value,2), self.f_red_light)
+                elif value >= bm and value < (bm * 1.25):
+                    self.worksheet.write(row+i+1, col, round(value,2), self.f_green_light)
+                else:
+                    self.worksheet.write(row+i+1, col, round(value,2), self.f_green_dark)
 
         CTR_DFP = 5 + col
         CTR_3P = 6 + col
@@ -266,11 +258,10 @@ class excel_exporter():
             }
         }
 
-
         # initialize xlsxwriter and set book formats
         advert = set(self.df['Advertiser']).pop()
         order = set(self.df['Order']).pop()
-        file_name = advert + ' ' + order + '.xlsx'
+        file_name = advert + ' ' + order.replace('/', '_') + '.xlsx'
         self.writer = pd.ExcelWriter(directory + file_name, engine='xlsxwriter')
 
         self.f_red_dark = self.writer.book.add_format({'bg_color': '#f79494',
@@ -309,7 +300,7 @@ class excel_exporter():
                 self.wtd_prod = self.apply_benchmarks(self.wtd_prod)
                 self.wtd_prod = self.trim_columns(self.wtd_prod)
                 self.write_excel(self.wtd_prod, row, colw)
-                self.conditional_format(self.wtd_prod, row, colw)
+                self.conditional_format(self.wtd_prod.fillna(0), row, colw, side='wtd')
 
             self.ctd_prod = self.ctd[self.ctd['creative.type'] == self.creative_type].groupby(
                 groupbys, as_index=False).sum()
@@ -318,38 +309,38 @@ class excel_exporter():
                 self.ctd_prod = self.apply_benchmarks(self.ctd_prod)
                 self.ctd_prod = self.trim_columns(self.ctd_prod)
                 self.write_excel(self.ctd_prod, row, colc)
-                self.conditional_format(self.ctd_prod, row, colc)
+                self.conditional_format(self.ctd_prod.fillna(0), row, colc, side='ctd')
 
             if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
                 row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
 
-        ################# Custom tab #########################################
-        if self.custom_tab is not None:
-            self.tab = 'Custom'
-            self.create_sheet()
-            row = 3
-            colw = 0
-            colc = 15
+        # ################# Custom tab #########################################
+        # if self.custom_tab is not None:
+        #     self.tab = 'Custom'
+        #     self.create_sheet()
+        #     row = 3
+        #     colw = 0
+        #     colc = 15
 
-            groupbys = [i for i in self.custom_tab.columns if 'Header' not in i]
-            headers = [i for i in self.custom_tab.columns if 'Header' in i]
-            custom_columns = (headers +
-                             ["DFP server imps", "3P imps"] +
-                             ['DFP CTR %', '3P CTR %', 'DFP VSR %',
-                              'DFP IR %', 'DFP view %']
-            )
+        #     groupbys = [i for i in self.custom_tab.columns if 'Header' not in i]
+        #     headers = [i for i in self.custom_tab.columns if 'Header' in i]
+        #     custom_columns = (headers +
+        #                      ["DFP server imps", "3P imps"] +
+        #                      ['DFP CTR %', '3P CTR %', 'DFP VSR %',
+        #                       'DFP IR %', 'DFP view %']
+        #     )
 
-            self.wtd_prod = pd.merge(self.wtd, self.custom_tab, on=groupbys, how='left')
-            self.wtd_prod = self.wtd_prod.groupby(headers, as_index=False).sum()
-            self.wtd_prod = self.metric_calcs(self.wtd_prod)
-            self.wtd_prod = self.wtd_prod[custom_columns]
-            self.write_excel(self.wtd_prod, row, colw)
+        #     self.wtd_prod = pd.merge(self.wtd, self.custom_tab, on=groupbys, how='left')
+        #     self.wtd_prod = self.wtd_prod.groupby(headers, as_index=False).sum()
+        #     self.wtd_prod = self.metric_calcs(self.wtd_prod)
+        #     self.wtd_prod = self.wtd_prod[custom_columns]
+        #     self.write_excel(self.wtd_prod, row, colw)
 
-            self.ctd_prod = pd.merge(self.ctd, self.custom_tab, on=groupbys, how='left')
-            self.ctd_prod = self.ctd_prod.groupby(headers, as_index=False).sum()
-            self.ctd_prod = self.metric_calcs(self.ctd_prod)
-            self.ctd_prod = self.ctd_prod[custom_columns]
-            self.write_excel(self.ctd_prod, row, colc)
+        #     self.ctd_prod = pd.merge(self.ctd, self.custom_tab, on=groupbys, how='left')
+        #     self.ctd_prod = self.ctd_prod.groupby(headers, as_index=False).sum()
+        #     self.ctd_prod = self.metric_calcs(self.ctd_prod)
+        #     self.ctd_prod = self.ctd_prod[custom_columns]
+        #     self.write_excel(self.ctd_prod, row, colc)
 
 
         ################# Creative tab #########################################
@@ -370,7 +361,7 @@ class excel_exporter():
                 self.wtd_prod = self.apply_benchmarks(self.wtd_prod)
                 self.wtd_prod = self.trim_columns(self.wtd_prod)
                 self.write_excel(self.wtd_prod, row, colw)
-                self.conditional_format(self.wtd_prod, row, colw+1)
+                self.conditional_format(self.wtd_prod.fillna(0), row, colw+1, side='wtd')
 
             self.ctd_prod = self.ctd[self.ctd['creative.type'] == self.creative_type].groupby(
                 groupbys, as_index=False).sum()
@@ -379,7 +370,7 @@ class excel_exporter():
                 self.ctd_prod = self.apply_benchmarks(self.ctd_prod)
                 self.ctd_prod = self.trim_columns(self.ctd_prod)
                 self.write_excel(self.ctd_prod, row, colc)
-                self.conditional_format(self.ctd_prod, row, colc+1)
+                self.conditional_format(self.ctd_prod.fillna(0), row, colc+1, side='ctd')
 
             if len(self.wtd_prod) > 0 or len(self.ctd_prod) > 0:
                 row += max(len(self.wtd_prod), len(self.ctd_prod)) + 2
